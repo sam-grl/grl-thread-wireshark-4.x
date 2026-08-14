@@ -14,10 +14,14 @@
 #include <stdlib.h>
 #include <math.h>
 #include <epan/packet.h>
+#include <epan/conversation.h>
 #include <epan/proto_data.h>
 #include <epan/wmem_scopes.h>
 #include <epan/expert.h>
+#include <epan/range.h>
 #include <epan/prefs.h>
+#include <epan/tfs.h>
+#include <wsutil/value_string.h>
 #include <epan/strutil.h>
 #include <epan/to_str.h>
 #include <epan/tfs.h>
@@ -25,7 +29,6 @@
 #include "packet-coap.h"
 #include "packet-ieee802154.h"
 #include "packet-mle.h"
-
 /* Use libgcrypt for cipher libraries. */
 #include <wsutil/wsgcrypt.h>
 
@@ -121,15 +124,141 @@ static int hf_thread_dg_tlv_length8;
 static int hf_thread_dg_tlv_length16;
 static int hf_thread_dg_tlv_general;
 static int hf_thread_dg_tlv_unknown;
+static int hf_thread_dg_tlv_rloc16;
+static int hf_thread_dg_tlv_ext_mac_addr;
+static int hf_thread_dg_tlv_version;
+static int hf_thread_dg_tlv_vendor_name;
+static int hf_thread_dg_tlv_vendor_model;
+static int hf_thread_dg_tlv_vendor_sw_ver;
+static int hf_thread_dg_tlv_thread_stack_ver;
+static int hf_thread_dg_tlv_thread_ver;
+static int hf_thread_dg_tlv_frame_error_rate;
+static int hf_thread_dg_tlv_msg_error_rate;
+static int hf_thread_dg_tlv_connection_time;
+static int hf_thread_dg_tlv_link_margin;
+static int hf_thread_dg_tlv_avg_rssi;
+static int hf_thread_dg_tlv_last_rssi;
+static int hf_thread_dg_tlv_mode_device_type;
+static int hf_thread_dg_tlv_mode_idle_rx;
+static int hf_thread_dg_tlv_mode_sec_data_req;
+static int hf_thread_dg_tlv_mode_receiver_on_idle;
+static int hf_thread_dg_tlv_mode_reserved1;
+static int hf_thread_dg_tlv_mode_reserved2;
+static int hf_thread_dg_tlv_mode_device_type_bit;
+static int hf_thread_dg_tlv_mode_network_data;
+static int hf_thread_dg_tlv_mode_nwk_data;
+static int hf_thread_dg_tlv_ldev_id_subject_pub_key_info;
+static int hf_thread_dg_tlv_idev_id_certificate;
+static int hf_thread_dg_tlv_mac_counter;
+static int hf_thread_dg_tlv_battery_level;
+static int hf_thread_dg_tlv_supply_voltage;
+
+static int hf_thread_dg_tlv_child_table_entry;
+static int hf_thread_dg_tlv_child_table_timeout;
+static int hf_thread_dg_tlv_child_table_ilq;
+static int hf_thread_dg_tlv_child_table_id;
+static int hf_thread_dg_tlv_child_table_mode;
+static int hf_thread_dg_tlv_channel_page;
+static int hf_thread_dg_tlv_ipv6_addr_list;
+
+/* Route64 TLV fields */
+static int hf_thread_dg_tlv_route64_id_seq;
+static int hf_thread_dg_tlv_route64_id_mask;
+static int hf_thread_dg_tlv_route64_entry;
+static int hf_thread_dg_tlv_route64_nbr_out;
+static int hf_thread_dg_tlv_route64_nbr_in;
+static int hf_thread_dg_tlv_route64_cost;
+
+/* Address16 TLV field */
+static int hf_thread_dg_tlv_addr16;
+
+/* Leader Data TLV fields */
+static int hf_thread_dg_tlv_leader_data_partition_id;
+static int hf_thread_dg_tlv_leader_data_weighting;
+static int hf_thread_dg_tlv_leader_data_version;
+static int hf_thread_dg_tlv_leader_data_stable_version;
+static int hf_thread_dg_tlv_leader_data_router_id;
+
+/* Network Data TLV field 
+static int hf_thread_dg_tlv_network_data;*/
+
+/*Max Child Timeout TLV Fields*/
+
+static int hf_thread_dg_tlv_max_child_timeout;
+
+/*Query TLV Fields*/
+
+static int hf_thread_dg_tlv_query_id;
+
+/*Query TLV Fields*/
+
+static int hf_thread_dg_tlv_answer_last_flag;
+static int hf_thread_dg_tlv_answer_index;
+
+/*Child TLV Fields*/
+
+static int hf_thread_dg_tlv_child_device_type;
+static int hf_thread_dg_tlv_child_sec_data_req;
+static int hf_thread_dg_tlv_child_nwk_data;
+static int hf_thread_dg_tlv_child_rx_on_idle;
+static int hf_thread_dg_tlv_child_device_type_bit;
+static int hf_thread_dg_tlv_child_network_data;
+static int hf_thread_dg_tlv_child_csl;
+static int hf_thread_dg_tlv_child_error_rates_tracking;
+static int hf_thread_dg_tlv_child_reserved;
+static int hf_thread_dg_tlv_child_timeout;
+static int hf_thread_dg_tlv_child_age;
+static int hf_thread_dg_tlv_child_supervision_interval;
+static int hf_thread_dg_tlv_child_queued_msg_count;
+static int hf_thread_dg_tlv_child_csl_period;
+static int hf_thread_dg_tlv_child_csl_timeout;
+static int hf_thread_dg_tlv_child_csl_channel;
+
+/* Child IPV6 Address TLV Fields */
+static int hf_thread_dg_tlv_ipv6_addr;
+
+/*Router Neighbor TLV Fields*/
+static int hf_thread_dg_tlv_router_neighbor_error_rates_tracking;
+static int hf_thread_dg_tlv_router_neighbor_reserved;
+
+/*MLE Counters*/
+static int hf_thread_dg_tlv_radio_disabled_counter;
+static int hf_thread_dg_tlv_detached_role_counter;
+static int hf_thread_dg_tlv_child_role_counter;
+static int hf_thread_dg_tlv_router_role_counter;
+static int hf_thread_dg_tlv_leader_role_counter;
+static int hf_thread_dg_tlv_attach_attempts_counter;
+static int hf_thread_dg_tlv_partition_id_changes_counter;
+static int hf_thread_dg_tlv_better_partition_attach_attempts_counter;
+static int hf_thread_dg_tlv_new_parent_counter;
+static int hf_thread_dg_tlv_total_tracking_time;
+static int hf_thread_dg_tlv_radio_disabled_time;
+static int hf_thread_dg_tlv_detached_role_time;
+static int hf_thread_dg_tlv_child_role_time;
+static int hf_thread_dg_tlv_router_role_time;
+static int hf_thread_dg_tlv_leader_role_time;
+
+/*Border Router OMR/On-link Prefix TLV Fields*/
+static int hf_thread_dg_tlv_border_router_local_omr_prefix;
+static int hf_thread_dg_tlv_border_router_local_on_link_prefix;
+
+static int hf_thread_dg_tlv_eui_64;
+static int hf_thread_dg_tlv_timeout;
+static int hf_thread_dg_tlv_conn_flags;
+static int hf_thread_dg_tlv_conn_flags_pp;
+static int hf_thread_dg_tlv_conn_lq3;
+static int hf_thread_dg_tlv_conn_lq2;
+static int hf_thread_dg_tlv_conn_lq1;
+static int hf_thread_dg_tlv_conn_leader_cost;
+static int hf_thread_dg_tlv_conn_id_seq;
+static int hf_thread_dg_tlv_conn_active_rtrs;
+static int hf_thread_dg_tlv_conn_sed_buf_size;
+static int hf_thread_dg_tlv_conn_sed_dgram_cnt;
+
 
 #if 0
 /**** TBC: will be added later. For now, just use general string ****/
 static int hf_thread_dg_tlv_source_addr;
-static int hf_thread_dg_tlv_mode_device_type;
-static int hf_thread_dg_tlv_mode_idle_rx;
-static int hf_thread_dg_tlv_mode_sec_data_req;
-static int hf_thread_dg_tlv_mode_nwk_data;
-static int hf_thread_dg_tlv_timeout;
 static int hf_thread_dg_tlv_lqi_c;
 static int hf_thread_dg_tlv_lqi_size;
 static int hf_thread_dg_tlv_neighbor;
@@ -352,6 +481,7 @@ static int hf_thread_nwd_tlv_has_route;
 static int hf_thread_nwd_tlv_has_route_br_16;
 static int hf_thread_nwd_tlv_has_route_pref;
 static int hf_thread_nwd_tlv_has_route_np;
+static int hf_thread_nwd_tlv_has_route_ap;
 static int hf_thread_nwd_tlv_has_route_reserved;
 
 
@@ -423,6 +553,10 @@ static int ett_thread_address;
 static int ett_thread_address_tlv;
 static int ett_thread_dg;
 static int ett_thread_dg_tlv;
+static int ett_thread_dg_conn_flg;
+static int ett_thread_dg_child_entry;
+static int ett_thread_dg_child_table;
+static int ett_thread_dg_router;
 static int ett_thread_mc;
 static int ett_thread_mc_tlv;
 static int ett_thread_mc_chan_mask;
@@ -441,21 +575,19 @@ static int ett_thread_bl;
 static int ett_thread_bl_tlv;
 
 static int ett_thread;
-/* static int ett_thread_header_ie; */
+static int ett_thread_header_ie;
 static int ett_thread_ie_fields;
-
-
 
 /* Expert info. */
 
-/* static expert_field ei_thread_address_tlv_length_failed; */
+static expert_field ei_thread_address_tlv_length_failed;
 static expert_field ei_thread_address_len_size_mismatch;
-/* static expert_field ei_thread_dg_tlv_length_failed; */
-/* static expert_field ei_thread_dg_len_size_mismatch; */
+static expert_field ei_thread_dg_tlv_length_failed;
+static expert_field ei_thread_dg_len_size_mismatch;
 static expert_field ei_thread_mc_tlv_length_failed;
 static expert_field ei_thread_mc_len_size_mismatch;
 static expert_field ei_thread_mc_len_too_long;
-/* static expert_field ei_thread_nwd_tlv_length_failed; */
+static expert_field ei_thread_nwd_tlv_length_failed;
 static expert_field ei_thread_nwd_len_size_mismatch;
 static expert_field ei_thread_nm_len_size_mismatch;
 static expert_field ei_thread_bl_len_size_mismatch;
@@ -480,6 +612,10 @@ static int hf_ieee802154_thread_ie_id;
 static int hf_ieee802154_thread_ie_length;
 
 #define THREAD_SERVICE_DATA_BBR 0x1
+//gobals
+//used to check if the full decoding of Server TLV has to
+//be done or not
+static int server_decode = 1;
 
 #define THREAD_TLV_LENGTH_ESC  0xFF
 
@@ -512,12 +648,11 @@ static int hf_ieee802154_thread_ie_length;
 
 #define THREAD_NWD_TLV_HAS_ROUTE_PREF       0xC0
 #define THREAD_NWD_TLV_HAS_ROUTE_NP         0x20
-#define THREAD_NWD_TLV_HAS_ROUTE_RESERVED   0x1F
+#define THREAD_NWD_TLV_HAS_ROUTE_AP         0x10
+#define THREAD_NWD_TLV_HAS_ROUTE_RESERVED   0x0F
 #define THREAD_NWD_TLV_HAS_ROUTE_SIZE       3
 
 #define THREAD_NWD_TLV_BORDER_ROUTER_PREF   0xC0
-#define THREAD_NWD_TLV_HAS_ROUTE_NP         0x20
-#define THREAD_NWD_TLV_HAS_ROUTE_RESERVED   0x1F
 #define THREAD_NWD_TLV_BORDER_ROUTER_P      0x20
 #define THREAD_NWD_TLV_BORDER_ROUTER_S      0x10
 #define THREAD_NWD_TLV_BORDER_ROUTER_D      0x08
@@ -632,6 +767,8 @@ static const value_string thread_address_tlv_status_vals[] = {
 #define THREAD_DG_TLV_ANSWER                32
 #define THREAD_DG_TLV_QUERY_ID              33
 #define THREAD_DG_TLV_MLE_COUNTERS          34
+#define THREAD_DG_TLV_BORDER_ROUTER_LOCAL_OMR_PREFIX    40
+#define THREAD_DG_TLV_BORDER_ROUTER_LOCAL_ON_LINK_PREFIX 42
 #define THREAD_DG_TLV_UNKNOWN               255
 
 static const value_string thread_dg_tlv_vals[] = {
@@ -669,9 +806,48 @@ static const value_string thread_dg_tlv_vals[] = {
 { THREAD_DG_TLV_ANSWER,                "Answer"},
 { THREAD_DG_TLV_QUERY_ID,              "Query ID"},
 { THREAD_DG_TLV_MLE_COUNTERS,          "MLE Counters"},
+{ THREAD_DG_TLV_BORDER_ROUTER_LOCAL_OMR_PREFIX,    "Border Router Local OMR Prefix"},
+{ THREAD_DG_TLV_BORDER_ROUTER_LOCAL_ON_LINK_PREFIX, "Border Router Local On-link Prefix"},
 { THREAD_DG_TLV_UNKNOWN,               "Unknown" },
 { 0, NULL }
 };
+
+/*Defined Thread Stack Version*/
+#define MAX_THREAD_STACK_VERSION_LENGTH 64
+
+#define CONN_MASK_FLAGS_PP_MASK     0xC0
+
+static const true_false_string thread_dg_tlv_child_device_type = {
+    "FFD",
+    "RFD"
+};
+static const true_false_string thread_dg_tlv_child_nwk_data = {
+    "Full",
+    "Stable"
+};
+static const true_false_string thread_dg_tlv_addr_reg_iid_type = {
+    "Compressed",
+    "Full"
+};
+static const true_false_string thread_dg_tlv_mode_nwk_data = {
+    "Full",
+    "Stable"
+};
+static const true_false_string thread_dg_tlv_mode_device_type = {
+    "FFD",
+    "RFD"
+};
+
+static const value_string thread_dg_conn_tlv_flags_pp_enums[] = {
+    { 1, "High" },
+    { 0, "Medium" },
+    { -1, "Low" },
+    { 0, NULL }
+};
+
+
+#define THREAD_DG_CMD_CINFO_SEC_DATA_REQ  0x04
+#define THREAD_DG_CMD_CINFO_NWK_DATA      0x01
 
 #define THREAD_MC_TLV_CHANNEL                      0 /* Modified for new features */
 #define THREAD_MC_TLV_PANID                        1
@@ -861,6 +1037,9 @@ static int hf_thread_nm_tlv_ml_eid;
 
 /* Status TLV fields */
 static int hf_thread_nm_tlv_status;
+
+/* Attached time TLV fields */
+/* static int hf_thread_nm_tlv_attached_time; */
 
 /* Last transaction time TLV fields */
 static int hf_thread_nm_tlv_last_transaction_time;
@@ -1371,7 +1550,7 @@ dissect_thread_address(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                     if (tlv_len != 1) {
                         expert_add_info(pinfo, proto_root, &ei_thread_address_len_size_mismatch);
                         proto_tree_add_item(tlv_tree, hf_thread_address_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
-                    } else {
+                   } else {
                         /* Status */
                         proto_tree_add_item(tlv_tree, hf_thread_address_tlv_status, tvb, offset, tlv_len, ENC_BIG_ENDIAN);
                     }
@@ -1397,7 +1576,7 @@ dissect_thread_address(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                 {
                     /* Check length is consistent */
                     if (tlv_len != 9) {
-                        expert_add_info(pinfo, proto_root, &ei_thread_address_len_size_mismatch);
+                       expert_add_info(pinfo, proto_root, &ei_thread_address_len_size_mismatch);
                         proto_tree_add_item(tlv_tree, hf_thread_address_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
                         offset += tlv_len;
                     } else {
@@ -1472,13 +1651,14 @@ dissect_thread_address(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void
                 }
                 else {
                     //Need to only take 16 bytes for the IPv6 address
+                    //proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_ipv6_addr, tvb, offset, tlv_len, ENC_NA);
                     for (int i = 0; i < (tlv_len / 16); i++)
                     {
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_ipv6_addr, tvb, offset, 16, ENC_NA);
                         offset += 16;
                     }
                 }
-                offset += tlv_len;
+                //offset += tlv_len;
                 break;
             default:
                 proto_tree_add_item(tlv_tree, hf_thread_address_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
@@ -1522,12 +1702,12 @@ dissect_thread_nm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
         proto_item_append_text(ti, " (%s)", val_to_str(pinfo->pool, tlv_type, thread_nm_tlv_vals, "Unknown (%d)"));
 
         /* Length */
-                proto_tree_add_item(tlv_tree, hf_thread_nm_tlv_length, tvb, offset, 1, ENC_BIG_ENDIAN);
+        proto_tree_add_item(tlv_tree, hf_thread_nm_tlv_length, tvb, offset, 1, ENC_BIG_ENDIAN);
         offset++;
 
 
         switch(tlv_type) {
-                case THREAD_NM_TLV_TARGET_EID:
+            case THREAD_NM_TLV_TARGET_EID:
                 {
                     /* Check length is consistent */
                     if (tlv_len != 16) {
@@ -1660,7 +1840,7 @@ dissect_thread_nm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                 offset += tlv_len;
                 break;
 
-           case THREAD_NM_TLV_TIMEOUT:
+            case THREAD_NM_TLV_TIMEOUT:
                 if (tlv_len > 4) {
                     expert_add_info(pinfo, proto_root, &ei_thread_nm_len_size_mismatch);
                     proto_tree_add_item(tlv_tree, hf_thread_nm_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
@@ -1674,7 +1854,7 @@ dissect_thread_nm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
 
                 break;
 
-           case THREAD_NM_TLV_THREAD_NETWORK_NAME:
+            case THREAD_NM_TLV_THREAD_NETWORK_NAME:
                 if (tlv_len > 16) {
                     expert_add_info(pinfo, proto_root, &ei_thread_nm_len_size_mismatch);
                     proto_tree_add_item(tlv_tree, hf_thread_nm_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
@@ -1684,10 +1864,10 @@ dissect_thread_nm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                     proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_net_name, tvb, offset, tlv_len, ENC_ASCII | ENC_UTF_8);
                 }
                 offset += tlv_len;
-
+                
                 break;
 
-           case THREAD_NM_TLV_IPV6_ADDRESS:
+            case THREAD_NM_TLV_IPV6_ADDRESS:
                 if ((tlv_len % 16) != 0) {
                     expert_add_info(pinfo, proto_root, &ei_thread_mc_len_size_mismatch);
                     proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
@@ -1695,6 +1875,7 @@ dissect_thread_nm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                 }
                 else {
                     //Need to only take 16 bytes for the IPv6 address
+                    //proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_ipv6_addr, tvb, offset, tlv_len, ENC_NA);
                     for (int i = 0; i < (tlv_len / 16); i++)
                     {
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_ipv6_addr, tvb, offset, 16, ENC_NA);
@@ -1702,14 +1883,14 @@ dissect_thread_nm(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                     }
                 }
                 break;
-
-           case THREAD_NM_TLV_COMMISSIONER_SESSION_ID:
+			
+			case THREAD_NM_TLV_COMMISSIONER_SESSION_ID:
                 {
                     /* Check length is consistent */
                     if (tlv_len != 2) {
                         expert_add_info(pinfo, proto_root, &ei_thread_mc_len_size_mismatch);
 
-            proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                        proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
                     } else {
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_commissioner_sess_id, tvb, offset, tlv_len, ENC_NA);
                     }
@@ -1892,8 +2073,8 @@ dissect_thread_bl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                 }
                 offset += tlv_len;
                 break;
-
-            case THREAD_NM_TLV_TIMEOUT:
+			
+			case THREAD_NM_TLV_TIMEOUT:
                 if (tlv_len > 4) {
                     expert_add_info(pinfo, proto_root, &ei_thread_bl_len_size_mismatch);
                     proto_tree_add_item(tlv_tree, hf_thread_bl_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
@@ -1917,26 +2098,26 @@ dissect_thread_bl(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                     proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_net_name, tvb, offset, tlv_len, ENC_ASCII | ENC_UTF_8);
                 }
                 offset += tlv_len;
-
+                
                 break;
 
             case THREAD_NM_TLV_IPV6_ADDRESS:
                 if ((tlv_len % 16) != 0) {
                     expert_add_info(pinfo, proto_root, &ei_thread_mc_len_size_mismatch);
                     proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
-                    offset += tlv_len;
+					offset += tlv_len;
                 }
                 else {
-                    proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_ipv6_addr, tvb, offset, tlv_len, ENC_NA);
-                     for(int i = 0; i < (tlv_len/16) ; i ++)
+                     //proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_ipv6_addr, tvb, offset, tlv_len, ENC_NA);
+					 for(int i = 0; i < (tlv_len/16) ; i ++)
                     {
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_ipv6_addr, tvb, offset, 16, ENC_NA);
                         offset += 16;
                     }
                 }
-                offset += tlv_len;
+                //offset += tlv_len;
                 break;
-
+			
             default:
                 proto_tree_add_item(tlv_tree, hf_thread_bl_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
                 offset += tlv_len;
@@ -1951,7 +2132,8 @@ dissect_thread_dg(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void 
     proto_item    *proto_root;
     proto_tree    *thread_dg_tree;
     proto_tree    *tlv_tree;
-    unsigned      offset = 0;
+    tvbuff_t      *sub_tvb;
+    unsigned         offset = 0;
     proto_item    *ti;
     uint8_t       tlv_type;
     uint16_t      tlv_len;
@@ -2015,37 +2197,663 @@ dissect_thread_dg(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void 
                 break;
 
             case THREAD_DG_TLV_EXT_MAC_ADDR:
+               {
+                    /* Check length is consistent */
+                    if (tlv_len != 8) {
+                        expert_add_info(pinfo, proto_root, &ei_thread_dg_len_size_mismatch);
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    } else {
+                        /* Extended MAC address */
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_ext_mac_addr, tvb, offset, tlv_len, ENC_BIG_ENDIAN);
+                    } 
+                    offset += tlv_len;
+                }
+                break;
+
             case THREAD_DG_TLV_ADDRESS16:
+                    if (tlv_len != 2) {
+                        /* TLV Length must be 2 */
+                        expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    } else {
+                        //uint16_t addr16 = tvb_get_ntohs(tvb, offset);
+        
+                    // Add the Address16 TLV to the protocol tree
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_addr16, tvb, offset, 2, ENC_BIG_ENDIAN);
+
+                    // Optionally, append text to the item in the protocol tree
+                    //proto_item_append_text(ti, " = %04x", addr16);
+                    }
+                offset += tlv_len;  // Move the offset by the length of the TLV
+                break;
+
+
             case THREAD_DG_TLV_MODE:
+                if (tlv_len == 1) {
+                    uint8_t capability;
+
+                    capability = tvb_get_uint8(tvb, offset);
+                    //proto_item_append_text(ti, " = %02x)", capability);
+                    /* Get and display capability info. (blatantly plagiarised from packet-ieee802154.c */
+                    proto_tree_add_bits_item(tlv_tree, hf_thread_dg_tlv_mode_reserved1, tvb, (offset * 8) + 0, 4, ENC_NA);//R1
+                    proto_tree_add_bits_item(tlv_tree, hf_thread_dg_tlv_mode_receiver_on_idle, tvb, (offset * 8) + 4, 1, ENC_NA);//Receiver
+                    proto_tree_add_bits_item(tlv_tree, hf_thread_dg_tlv_mode_reserved2, tvb, (offset * 8) + 5, 1, ENC_NA);//R2
+                    proto_tree_add_bits_item(tlv_tree, hf_thread_dg_tlv_mode_device_type_bit, tvb, (offset * 8) +6, 1, ENC_NA);//Device Type
+                    proto_tree_add_bits_item(tlv_tree, hf_thread_dg_tlv_mode_network_data, tvb, (offset * 8) +7, 1, ENC_NA);//Network Data
+                    //proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_mode_device_type, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    //proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_mode_sec_data_req, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    //proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_mode_idle_rx, tvb, offset, 1, ENC_BIG_ENDIAN);
+                }
+                else {
+                    /* TLV Length must be 1 */
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                }
+                offset += tlv_len;
+                break;
+
             case THREAD_DG_TLV_TIMEOUT:
+                if (tlv_len != 4) {
+                    /* TLV Length must be 4 */
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                } else {
+                    uint32_t to_data = 0;
+                    proto_tree_add_item_ret_uint(tlv_tree, hf_thread_dg_tlv_timeout, tvb, offset, 4, ENC_BIG_ENDIAN, &to_data);
+                    proto_item_append_text(ti, " = %u", to_data);
+                }
+                proto_item_append_text(ti, ")");
+                offset += tlv_len;
+                break;
+
             case THREAD_DG_TLV_CONNECTIVITY:
+                proto_item_append_text(ti, ")");
+                if ((tlv_len == 7) || (tlv_len == 10)) {
+                    proto_tree *fl_tree;
+
+                    ti = proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_conn_flags, tvb, offset, 1, ENC_NA);
+                    fl_tree = proto_item_add_subtree(ti, ett_thread_dg_conn_flg);
+                    proto_tree_add_item(fl_tree, hf_thread_dg_tlv_conn_flags_pp, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_conn_lq3, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_conn_lq2, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_conn_lq1, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_conn_leader_cost, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_conn_id_seq, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_conn_active_rtrs, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                    if (tlv_len == 10) {
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_conn_sed_buf_size, tvb, offset, 2, ENC_BIG_ENDIAN);
+                        offset += 2;
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_conn_sed_dgram_cnt, tvb, offset, 1, ENC_BIG_ENDIAN);
+                        offset++;
+                    }
+                } else {
+                    /* TLV Length must be 7 (old style) or 10 */
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                }
+                break;
+
             case THREAD_DG_TLV_ROUTE64:
+                {
+                    proto_tree *rtr_tree;
+                    unsigned i, j;
+                    uint8_t count;
+                    uint64_t id_mask, test_mask;
+
+                    proto_item_append_text(ti, ")");
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_route64_id_seq, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+
+                    /* Count number of table entries */
+                    count = 0;
+                    for (i = 0; i < 8; i++) { /* TODO magic - number of routers/8 */
+                        uint8_t id_mask_octet = tvb_get_uint8(tvb, offset + i);
+                        for (j = 0; j < 8; j++) {
+                            if (id_mask_octet & (1 << j)) {
+                                count++;
+                            }
+                        }
+                    }
+
+                    /*
+                     * | | | | | | | | | | |1|1|1|1|1|1|...|6|
+                     * |0|1|2|3|4|5|6|7|8|9|0|1|2|3|4|5|...|3|
+                     * ---------------------------------------
+                     * |1|0|1|1|1|0|0|0|1|1|0|0|0|1|0|1|...
+                     *
+                     * is sent as 0xb8, 0xc5
+                     * and represents table entry for routers 0, 2, 3, 4, 8, 9, 13, 15...
+                     */
+                    /* Get the ID mask as a 64-bit number (BE) */
+                    id_mask = tvb_get_ntoh64(tvb, offset);
+
+                    /* Just show the string of octets - best representation for a bit mask */
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_route64_id_mask, tvb, offset, 8, ENC_NA);
+                    offset += 8;
+
+                    if (count != (tlv_len - 9))
+                    {
+                        expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                        offset += (tlv_len - 9);
+                    } else {
+                        /* Add subtrees */
+                        for (i = 0; i < count; i++) {
+                            /* Find first bit set */
+                            for (j = 0, test_mask = (G_GUINT64_CONSTANT(1) << 63); test_mask != 1; test_mask >>= 1, j++) {
+                                if (test_mask & id_mask) {
+                                    id_mask &= ~test_mask;
+                                    break;
+                                }
+                            }
+                            ti = proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_route64_entry, tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_item_append_text(ti, " (%d)", j);
+                            rtr_tree = proto_item_add_subtree(ti, ett_thread_dg_router);
+
+                            proto_tree_add_item(rtr_tree, hf_thread_dg_tlv_route64_nbr_out, tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(rtr_tree, hf_thread_dg_tlv_route64_nbr_in, tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(rtr_tree, hf_thread_dg_tlv_route64_cost, tvb, offset, 1, ENC_BIG_ENDIAN);
+                            offset++;
+                        }
+                    }
+                }
+                break;
+
             case THREAD_DG_TLV_LEADER_DATA:
+                proto_item_append_text(ti, ")");
+                if (tlv_len != 8) {
+                    /* TLV Length must be 8 */
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                } else {
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_leader_data_partition_id, tvb, offset, 4, ENC_BIG_ENDIAN);
+                    offset += 4;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_leader_data_weighting, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_leader_data_version, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_leader_data_stable_version, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_leader_data_router_id, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset++;
+                }
+                break;
+
             case THREAD_DG_TLV_NETWORK_DATA:
+                if (tlv_len > 0) {
+                    sub_tvb = tvb_new_subset_length(tvb, offset, tlv_len);
+                    call_dissector(thread_address_nwd_handle, sub_tvb, pinfo, tlv_tree);
+                }
+                offset += tlv_len;
+                break;
+
+
             case THREAD_DG_TLV_IPV6_ADDR_LIST:
+                {
+                    if (tlv_len % 16 != 0) {
+                        expert_add_info(pinfo, proto_root, &ei_thread_dg_len_size_mismatch);
+                    } else {
+                        int num_ipv6_addrs = tlv_len / 16;
+                        int i;
+
+                        for (i = 0; i < num_ipv6_addrs; i++) {
+                            proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_ipv6_addr_list, tvb, offset, 16, ENC_NA);
+                            offset += 16;
+                        }
+                    }
+                }
+                break;
+
             /* Counters */
             case THREAD_DG_TLV_MAC_COUNTERS:
+                // Minimum length for MAC Counters TLV is 4 bytes (at least one counter)
+                if (tlv_len < 4) {
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                } else {
+                // Iterate through each MAC counter
+                    int mac_counter_len = 4; // Each counter is 4 bytes
+                    while (tlv_len >= mac_counter_len) {
+                    uint32_t mac_counter = tvb_get_ntohl(tvb, offset);
+
+                    // Add the MAC Counter to the protocol tree
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_mac_counter, tvb, offset, mac_counter_len, ENC_BIG_ENDIAN);
+                    proto_item_append_text(ti, " = %u", mac_counter);
+
+                    offset += mac_counter_len; // Move the offset forward
+                    tlv_len -= mac_counter_len; // Decrease the TLV length by 4 bytes
+                     }
+                }
+                break;
+
             case THREAD_DG_TLV_BATTERY_LEVEL:
-            case THREAD_DG_TLV_VOLTAGE:
-            case THREAD_DG_TLV_CHILD_TABLE:
-            case THREAD_DG_TLV_CHANNEL_PAGES:
-            case THREAD_DG_TLV_MAX_CHILD_TIMEOUT:
-            case THREAD_DG_TLV_LDEVID_SUBJECT_PUBLIC_KEY_INFO:
-            case THREAD_DG_TLV_IDEVID_CERTIFICATE:
-            case THREAD_DG_TLV_EUI_64:
-            case THREAD_DG_TLV_VERSION:
-            case THREAD_DG_TLV_VENDOR_NAME:
-            case THREAD_DG_TLV_VENDOR_MODEL:
-            case THREAD_DG_TLV_VENDOR_SW_VERSION:
-            case THREAD_DG_TLV_THREAD_STACK_VERSION:
-            case THREAD_DG_TLV_CHILD:
-            case THREAD_DG_TLV_CHILD_IPV6_ADDRESS_LIST:
-            case THREAD_DG_TLV_ROUTER_NEIGHBOR:
-            case THREAD_DG_TLV_ANSWER:
-            case THREAD_DG_TLV_QUERY_ID:
-            case THREAD_DG_TLV_MLE_COUNTERS:
-                proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_general, tvb, offset, tlv_len, ENC_NA);
+                if (tlv_len != 1) {
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                } else {
+                    uint8_t battery_level = tvb_get_uint8(tvb, offset);
+
+                    // Add the Battery Level TLV to the protocol tree
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_battery_level, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    proto_item_append_text(ti, " = %u%%", battery_level);
+                 }
                 offset += tlv_len;
+                break;
+
+            case THREAD_DG_TLV_VOLTAGE:
+                if (tlv_len != 2) {
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                } else {
+                    uint16_t supply_voltage = tvb_get_ntohs(tvb, offset);
+
+                    // Add the Supply Voltage TLV to the protocol tree
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_supply_voltage, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    proto_item_append_text(ti, " = %u mV", supply_voltage);
+                }
+                offset += tlv_len;
+            break;
+
+            case THREAD_DG_TLV_CHILD_TABLE:
+                if (tlv_len >= 3) { // Minimal length for at least one entry
+                    unsigned offset = 0;
+                    proto_item_append_text(ti, ")");
+
+                    // Create a subtree for child table entries
+                    proto_tree *child_table_subtree = proto_item_add_subtree(ti, ett_thread_dg_child_table);
+
+                    while (offset < tlv_len) {
+                        // Add each child entry as a subtree item
+                        proto_item *child_entry_item = proto_tree_add_item(child_table_subtree, hf_thread_dg_tlv_child_table_entry, tvb, offset, 3, ENC_NA);
+                        proto_tree *child_entry_tree = proto_item_add_subtree(child_entry_item, ett_thread_dg_child_entry);
+
+                        // Parsing Timeout (5 bits) + ILQ (2 bits) combined
+                        uint8_t timeout_and_ilq = tvb_get_uint8(tvb, offset);
+                        uint8_t timeout = (timeout_and_ilq >> 3) & 0x1F; // First 5 bits
+                        uint8_t ilq = (timeout_and_ilq >> 1) & 0x03; // Next 2 bits
+
+                        proto_tree_add_uint(child_entry_tree, hf_thread_dg_tlv_child_table_timeout, tvb, offset, 1, timeout);
+                        proto_tree_add_uint(child_entry_tree, hf_thread_dg_tlv_child_table_ilq, tvb, offset, 1, ilq);
+
+                        // Parsing Child ID (9 bits)
+                        uint16_t child_id = ((timeout_and_ilq & 0x01) << 8) | tvb_get_uint8(tvb, offset + 1);
+                        proto_tree_add_uint(child_entry_tree, hf_thread_dg_tlv_child_table_id, tvb, offset, 2, child_id);
+
+                        // Parsing Mode (8 bits)
+                        uint8_t mode = tvb_get_uint8(tvb, offset + 2);
+                        proto_tree_add_uint(child_entry_tree, hf_thread_dg_tlv_child_table_mode, tvb, offset + 2, 1, mode);
+
+                        offset += 3; // Move offset forward by 3 bytes (size of each Child Entry)
+                    }
+                } else {
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                }
+                offset += tlv_len;
+                break;
+
+            case THREAD_DG_TLV_CHANNEL_PAGES:
+            {
+                int channel_page_len = 1; // Each Channel Page is 1 byte
+                if (tlv_len < channel_page_len) {
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                } else {
+                    while (tlv_len >= channel_page_len) {
+                        //uint8_t channel_page = tvb_get_uint8(tvb, offset);
+
+                        // Add the Channel Page to the protocol tree
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_channel_page, tvb, offset, channel_page_len, ENC_BIG_ENDIAN);
+                        //proto_item_append_text(ti, " = %u", channel_page);
+
+                        offset += channel_page_len; // Move the offset forward
+                        tlv_len -= channel_page_len; // Decrease the TLV length by 1 byte
+                    }
+                }
+            }
+            break;
+
+            case THREAD_DG_TLV_MAX_CHILD_TIMEOUT:
+                if (tlv_len != 4) {
+                    /* TLV Length must be 4 */
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_len_size_mismatch);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                } else {
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_max_child_timeout, tvb, offset, 4, ENC_BIG_ENDIAN);
+                    offset += 4; // Move the offset by 4 bytes for the next part of the TLV
+                }
+            break;
+
+            case THREAD_DG_TLV_LDEVID_SUBJECT_PUBLIC_KEY_INFO:
+            {
+                if (tlv_len > 0) {
+                    // Parse the ASN.1 DER encoded subject public key info
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_ldev_id_subject_pub_key_info, tvb, offset, tlv_len, ENC_NA);
+                } else {
+                    // Length is 0, invalid TLV
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                }
+                offset += tlv_len;
+            }
+            break;
+
+            case THREAD_DG_TLV_IDEVID_CERTIFICATE:
+            {
+                if (tlv_len > 0) {
+                    // Parse the ASN.1 DER encoded IDevID certificate
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_idev_id_certificate, tvb, offset, tlv_len, ENC_NA);
+            } else {
+                    // Length is 0, invalid TLV
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                }
+                offset += tlv_len;
+            }
+            break;
+
+            case THREAD_DG_TLV_EUI_64:
+                if (tlv_len == 8) {
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_eui_64, tvb, offset, 8, ENC_NA);
+                    offset += 8;
+                } else {
+                    expert_add_info(pinfo, tlv_tree, &ei_thread_dg_len_size_mismatch);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                }
+            break;
+                
+            case THREAD_DG_TLV_VERSION:
+                if (tlv_len != 2) {
+                    /* TLV Length must be 2 */
+                    proto_item_append_text(ti, ")");
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                } else {
+                    uint16_t version;
+
+                    version = tvb_get_ntohs(tvb, offset);
+                    proto_item_append_text(ti, " = %d)", version);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_version, tvb, offset, tlv_len, ENC_BIG_ENDIAN);
+                }
+                offset += tlv_len;
+                break;
+            case THREAD_DG_TLV_VENDOR_NAME:
+                {
+                    /* Check length is consistent */
+                    if (tlv_len > 32) {
+                        expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    } else {
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_vendor_name, tvb, offset, tlv_len, ENC_NA|ENC_UTF_8);
+                    }
+                    offset += tlv_len;
+                }
+                break;
+            case THREAD_DG_TLV_VENDOR_MODEL:
+                {
+                    /* Check length is consistent: TODO not specified in spec. */
+                    if (tlv_len > 32) {
+                        expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    } else {
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_vendor_model, tvb, offset, tlv_len, ENC_NA|ENC_UTF_8);
+                    }
+                    offset += tlv_len;
+                }
+                break;
+
+            case THREAD_DG_TLV_VENDOR_SW_VERSION:
+                {
+                    /* Check length is consistent */
+                    if (tlv_len > 16) {
+                        expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    } else {
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_vendor_sw_ver, tvb, offset, tlv_len, ENC_NA|ENC_UTF_8);
+                    }
+                    offset += tlv_len;
+                }
+                break;
+            case THREAD_DG_TLV_THREAD_STACK_VERSION:
+                /* Check TLV length */
+                if (tlv_len > 0 && tlv_len <= MAX_THREAD_STACK_VERSION_LENGTH) {
+                    /* Extract Thread Stack Version string */
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_thread_stack_ver, tvb, offset, tlv_len, ENC_UTF_8);
+                    offset += tlv_len;
+                } else {
+                    /* TLV Length exceeds maximum allowed length */
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_tlv_length_failed);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                }
+                break;     
+            case THREAD_DG_TLV_CHILD:
+                // Parse Child TLV
+                if (tlv_len != 43) {
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_len_size_mismatch);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                } else {
+                    // Parse Child TLV fields
+                    uint8_t flags_byte;
+                    flags_byte = tvb_get_uint8(tvb, offset); // Get the byte containing the flags
+                    //offset += 1; // Move the offset by 1 byte
+                    
+                    /* Extract each flag using bitwise operations */
+				    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_rx_on_idle, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_device_type_bit, tvb, offset , 1, ENC_NA);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_network_data, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_csl, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_error_rates_tracking, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_reserved, tvb, offset, 1, ENC_NA);
+                    offset += 1; 
+                    
+                    // Move the offset by another byte for the next part of the TLV
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_rloc16, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_ext_mac_addr, tvb, offset, 8, ENC_NA);
+                    offset += 8;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_thread_ver, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_timeout, tvb, offset, 4, ENC_BIG_ENDIAN);
+                    offset += 4;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_age, tvb, offset, 4, ENC_BIG_ENDIAN);
+                    offset += 4;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_connection_time, tvb, offset, 4, ENC_BIG_ENDIAN);
+                    offset += 4;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_supervision_interval, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_link_margin, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset += 1;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_avg_rssi, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset += 1;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_last_rssi, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset += 1;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_frame_error_rate, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_msg_error_rate, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_queued_msg_count, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_csl_period, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_csl_timeout, tvb, offset, 4, ENC_BIG_ENDIAN);
+                    offset += 4;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_csl_channel, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset += 1;
+                }
+            break;
+            case THREAD_DG_TLV_CHILD_IPV6_ADDRESS_LIST:
+                /* Check TLV length */
+                if (tlv_len < 2) {
+                    /* TLV Length must be at least 2 (for RLOC16) */
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_len_size_mismatch);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                } else {
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_rloc16, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    /* Extract IPv6 addresses */
+                    uint8_t num_addresses = (tlv_len - 2) / 16; // Calculate the number of IPv6 addresses
+                    for (int i = 0; i < num_addresses; i++) {
+                        proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_ipv6_addr, tvb, offset, 16, ENC_NA);
+                        offset += 16;
+                        }
+                }
+                break;
+            case THREAD_DG_TLV_ROUTER_NEIGHBOR:
+                // Parse Router Neighbor
+                if (tlv_len != 24) {
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_len_size_mismatch);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                } else {
+                    // Parse Router Neighbor TLV Fields
+                    uint8_t flags_byte;
+                    flags_byte = tvb_get_uint8(tvb, offset); // Get the byte containing the flags
+                    
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_router_neighbor_error_rates_tracking, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_router_neighbor_reserved, tvb, offset, 1, ENC_NA);
+                    offset += 1;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_rloc16, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_ext_mac_addr, tvb, offset, 8, ENC_NA);
+                    offset += 8;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_thread_ver, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_connection_time, tvb, offset, 4, ENC_BIG_ENDIAN);
+                    offset += 4;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_link_margin, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset += 1;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_avg_rssi, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset += 1;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_last_rssi, tvb, offset, 1, ENC_BIG_ENDIAN);
+                    offset += 1;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_frame_error_rate, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+            
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_msg_error_rate, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                }
+            break;
+            case THREAD_DG_TLV_ANSWER:
+                /*Check TLV Length*/
+                if (tlv_len != 2) {
+                    /* TLV Length must be 2 */
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_len_size_mismatch);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                } else {
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_answer_last_flag, tvb, offset, 1, ENC_NA);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_answer_index, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                }
+            break;
+            case THREAD_DG_TLV_QUERY_ID:
+                /* Query ID */
+                if (tlv_len != 2) {
+                    /* TLV Length must be 2 */
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_len_size_mismatch);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                } else {
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_query_id, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                }
+            break;
+            case THREAD_DG_TLV_MLE_COUNTERS:
+                if (tlv_len == 66) {
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_radio_disabled_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_detached_role_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_role_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_router_role_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_leader_role_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_attach_attempts_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_partition_id_changes_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_better_partition_attach_attempts_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_new_parent_counter, tvb, offset, 2, ENC_BIG_ENDIAN);
+                    offset += 2;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_total_tracking_time, tvb, offset, 8, ENC_BIG_ENDIAN);
+                    offset += 8;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_radio_disabled_time, tvb, offset, 8, ENC_BIG_ENDIAN);
+                    offset += 8;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_detached_role_time, tvb, offset, 8, ENC_BIG_ENDIAN);
+                    offset += 8;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_child_role_time, tvb, offset, 8, ENC_BIG_ENDIAN);
+                    offset += 8;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_router_role_time, tvb, offset, 8, ENC_BIG_ENDIAN);
+                    offset += 8;
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_leader_role_time, tvb, offset, 8, ENC_BIG_ENDIAN);
+                    offset += 8;
+                } else {
+                    expert_add_info(pinfo, tlv_tree, &ei_thread_dg_len_size_mismatch);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                }
+                break;
+            
+            case THREAD_DG_TLV_BORDER_ROUTER_LOCAL_OMR_PREFIX:
+                proto_item_append_text(ti, ")");
+                if (tlv_len > 0 && tlv_len <= 16) {
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_border_router_local_omr_prefix, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                } else {
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_len_size_mismatch);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                }
+                break;
+
+            case THREAD_DG_TLV_BORDER_ROUTER_LOCAL_ON_LINK_PREFIX:
+                proto_item_append_text(ti, ")");
+                if (tlv_len > 0 && tlv_len <= 16) {
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_border_router_local_on_link_prefix, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                } else {
+                    expert_add_info(pinfo, proto_root, &ei_thread_dg_len_size_mismatch);
+                    proto_tree_add_item(tlv_tree, hf_thread_dg_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
+                    offset += tlv_len;
+                }
                 break;
 
             default:
@@ -2312,7 +3120,7 @@ dissect_thread_mc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_sec_policy_r, tvb, offset, 1, ENC_BIG_ENDIAN);
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_sec_policy_c, tvb, offset, 1, ENC_BIG_ENDIAN);
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_sec_policy_b, tvb, offset, 1, ENC_BIG_ENDIAN);
-                        proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_sec_policy_ccm, tvb, offset, 1, ENC_BIG_ENDIAN);
+						proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_sec_policy_ccm, tvb, offset, 1, ENC_BIG_ENDIAN);
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_sec_policy_ae, tvb, offset, 1, ENC_BIG_ENDIAN);
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_sec_policy_nmp, tvb, offset, 1, ENC_BIG_ENDIAN);
                         offset++;
@@ -2321,11 +3129,11 @@ dissect_thread_mc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_sec_policy_rsv, tvb, offset, 1, ENC_BIG_ENDIAN);
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_sec_policy_vr, tvb, offset, 1, ENC_BIG_ENDIAN);
                         offset++;
-
-                    } else{
+						
+					} else{
                         expert_add_info(pinfo, proto_root, &ei_thread_mc_len_size_mismatch);
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_unknown, tvb, offset, tlv_len, ENC_NA);
-                        offset += tlv_len;
+                        offset += tlv_len;	
                     }
                 }
                 break;
@@ -2694,8 +3502,8 @@ dissect_thread_mc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                     offset += tlv_len;
                 }
                 break;
-
-            case THREAD_MC_TLV_DOMAIN_NAME:
+				
+			case THREAD_MC_TLV_DOMAIN_NAME:
                 {
                     /* Check length is consistent */
                     if (tlv_len > 16) {
@@ -2797,7 +3605,7 @@ dissect_thread_mc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                 break;
 
             case THREAD_MC_TLV_COMMISSIONER_PEN_TOKEN:
-                break;
+                break;	
 
             case THREAD_MC_TLV_DISCOVERY_REQUEST:
                 {
@@ -2822,7 +3630,7 @@ dissect_thread_mc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *dat
                     } else {
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_discovery_rsp_ver, tvb, offset, 1, ENC_BIG_ENDIAN);
                         proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_discovery_rsp_n, tvb, offset, 1, ENC_BIG_ENDIAN);
-                        proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_discovery_rsp_c, tvb, offset, 1, ENC_BIG_ENDIAN);
+						proto_tree_add_item(tlv_tree, hf_thread_mc_tlv_discovery_rsp_c, tvb, offset, 1, ENC_BIG_ENDIAN);
                     }
                     offset += tlv_len;
                 }
@@ -2900,7 +3708,8 @@ dissect_thread_nwd_with_server_decode(tvbuff_t *tvb, packet_info *pinfo, proto_t
                             proto_tree_add_item(has_route_tree, hf_thread_nwd_tlv_has_route_br_16, tvb, offset, 2, ENC_BIG_ENDIAN);
                             offset += 2;
                             proto_tree_add_item(has_route_tree, hf_thread_nwd_tlv_has_route_pref, tvb, offset, 1, ENC_BIG_ENDIAN);
-                            proto_tree_add_item(has_route_tree, hf_thread_nwd_tlv_has_route_np, tvb, offset, 1, ENC_BIG_ENDIAN);
+							proto_tree_add_item(has_route_tree, hf_thread_nwd_tlv_has_route_np, tvb, offset, 1, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(has_route_tree, hf_thread_nwd_tlv_has_route_ap, tvb, offset, 1, ENC_BIG_ENDIAN);
                             proto_tree_add_item(has_route_tree, hf_thread_nwd_tlv_has_route_reserved, tvb, offset, 1, ENC_BIG_ENDIAN);
                             offset += 1;
                         }
@@ -2981,7 +3790,7 @@ dissect_thread_nwd_with_server_decode(tvbuff_t *tvb, packet_info *pinfo, proto_t
                             proto_tree_add_item(border_router_tree, hf_thread_nwd_tlv_border_router_o, tvb, offset, 1, ENC_BIG_ENDIAN);
                             offset++;
                             proto_tree_add_item(border_router_tree, hf_thread_nwd_tlv_border_router_n, tvb, offset, 1, ENC_BIG_ENDIAN);
-                            proto_tree_add_item(border_router_tree, hf_thread_nwd_tlv_border_router_dp, tvb, offset, 1, ENC_BIG_ENDIAN);
+							proto_tree_add_item(border_router_tree, hf_thread_nwd_tlv_border_router_dp, tvb, offset, 1, ENC_BIG_ENDIAN);
                             offset++;
                         }
                     }
@@ -3064,7 +3873,7 @@ dissect_thread_nwd_with_server_decode(tvbuff_t *tvb, packet_info *pinfo, proto_t
                         {
                             server_decode = 2;
                             proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_service_unicast_ipv6_address, tvb, offset, 16, ENC_NA);
-                            proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_service_unicast_port_number, tvb, offset  + 16, 2, ENC_BIG_ENDIAN);
+                            proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_service_unicast_port_number, tvb, offset  + 16, 2, ENC_NA);
                             offset += 18;
                             tlv_offset += 18;
                         }
@@ -3083,8 +3892,8 @@ dissect_thread_nwd_with_server_decode(tvbuff_t *tvb, packet_info *pinfo, proto_t
                             server_decode = 0;
                         }
                     }
-
-                    // proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_service_s_data, tvb, offset, s_data_len, ENC_NA);
+					
+					// proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_service_s_data, tvb, offset, s_data_len, ENC_NA);
                     // offset += s_data_len;
                     // tlv_offset += s_data_len;
                     // //Flag to be 1 (BIG_ENDIAN so check the MSB)  and thread_service_data = 1 then Server Sub TLV needs to be decoded with s_server_data fields
@@ -3096,9 +3905,9 @@ dissect_thread_nwd_with_server_decode(tvbuff_t *tvb, packet_info *pinfo, proto_t
                     //     server_decode = 0;
                     // }
                     // Thread 1.3 Service TLV code
-
+					
                     /* sub-TLVs */
-
+					
                     if (tlv_offset < tlv_len) {
                         proto_tree *sub_tlv_tree;
                         unsigned remaining = tlv_len - tlv_offset;
@@ -3138,13 +3947,13 @@ dissect_thread_nwd_with_server_decode(tvbuff_t *tvb, packet_info *pinfo, proto_t
 
                         if (tlv_offset < tlv_len)
                         {
-                            unsigned remaining = tlv_len - tlv_offset;
-                            //remaining bytes - server data
-                            proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_server_data, tvb, offset, remaining, ENC_NA);
-                            offset += remaining;
+                        unsigned remaining = tlv_len - tlv_offset;
+                        //remaining bytes - server data
+                        proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_server_data, tvb, offset, remaining, ENC_NA);
+                        offset += remaining;
                         }
-
-                    }
+						
+					}
                     // Thread 1.3 Service TLV code
                     else if(server_decode == 2) {
                         //2 bytes of server 16
@@ -3153,11 +3962,11 @@ dissect_thread_nwd_with_server_decode(tvbuff_t *tvb, packet_info *pinfo, proto_t
                         tlv_offset = 2;
                         if (tlv_offset < tlv_len)
                         {
-                            unsigned remaining = tlv_len - tlv_offset;
-                            //remaining bytes - server data
-                            proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_server_data, tvb, offset, remaining, ENC_NA);
-                            offset += remaining;
-                        }
+                        unsigned remaining = tlv_len - tlv_offset;
+                        //remaining bytes - server data
+                        proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_server_data, tvb, offset, remaining, ENC_NA);
+                        offset += remaining;
+                    }
                     }
                     else if(server_decode == 3) {
                         //2 bytes of server 16
@@ -3171,11 +3980,11 @@ dissect_thread_nwd_with_server_decode(tvbuff_t *tvb, packet_info *pinfo, proto_t
 
                         if (tlv_offset < tlv_len)
                         {
-                            unsigned remaining = tlv_len - tlv_offset;
-                            //remaining bytes - server data
-                            proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_server_data, tvb, offset, remaining, ENC_NA);
-                            offset += remaining;
-                        }
+                        unsigned remaining = tlv_len - tlv_offset;
+                        //remaining bytes - server data
+                        proto_tree_add_item(tlv_tree, hf_thread_nwd_tlv_server_data, tvb, offset, remaining, ENC_NA);
+                        offset += remaining;
+                    }
                     }
                     // Thread 1.3 Service TLV code
                 }
@@ -3211,7 +4020,7 @@ dissect_thread_coap(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *d
     if (!coinfo) return 0;
 
     uri = wmem_strbuf_get_str(coinfo->uri_path_strbuf);
-
+    
     tokens = wmem_strsplit(pinfo->pool, uri, "/", 3);
     if (g_strv_length(tokens) == 3) {
         /* No need to create a subset as we are dissecting the tvb as it is. */
@@ -3361,9 +4170,9 @@ proto_register_thread_nm(void)
                     "thread_nm.tlv.unknown",
                     FT_BYTES, BASE_NONE, NULL, 0x0,
                     "Unknown TLV, raw value",
-                HFILL }
+                    HFILL }
             },
-    #if 0
+#if 0
             { &hf_thread_nm_tlv_sub_tlvs,
                 {   "Sub-TLV(s)",
                     "thread_nm.tlv.sub_tlvs",
@@ -3372,8 +4181,8 @@ proto_register_thread_nm(void)
                     HFILL
                 }
             },
-    #endif
-                /* Type-Specific TLV Fields */
+#endif
+            /* Type-Specific TLV Fields */
             { &hf_thread_nm_tlv_target_eid,
                 {   "Target EID",
                     "thread_nm.tlv.target_eid",
@@ -3406,61 +4215,71 @@ proto_register_thread_nm(void)
                     HFILL
                 }
             },
-            { &hf_thread_nm_tlv_status,
+        { &hf_thread_nm_tlv_status,
                 {   "Status",
-                    "thread_nm.tlv.status",
-                    FT_UINT8, BASE_DEC, VALS(thread_nm_tlv_status_vals), 0x0,
+            "thread_nm.tlv.status",
+            FT_UINT8, BASE_DEC, VALS(thread_nm_tlv_status_vals), 0x0,
+            NULL,
+                    HFILL
+                }
+        },
+#if 0
+        { &hf_thread_nm_tlv_attached_time,
+                {   "Attached Time",
+                    "thread_nm.tlv.attached_time",
+                    FT_UINT32, BASE_DEC, NULL, 0x0,
                     NULL,
                     HFILL
                 }
             },
-            { &hf_thread_nm_tlv_last_transaction_time,
+#endif
+        { &hf_thread_nm_tlv_last_transaction_time,
                 {   "Last Transaction Time",
                     "thread_nm.tlv.last_transaction_time",
                     FT_UINT32, BASE_DEC, NULL, 0x0,
                     NULL,
                     HFILL
                 }
-            },
-            { &hf_thread_nm_tlv_router_mask_id_seq,
+        },
+        { &hf_thread_nm_tlv_router_mask_id_seq,
                 {   "ID Sequence",
                     "thread_nm.tlv.router_mask_id_seq",
                     FT_UINT8, BASE_DEC, NULL, 0x0,
                     NULL,
                     HFILL
                 }
-            },
-            { &hf_thread_nm_tlv_router_mask_assigned,
+        },
+        { &hf_thread_nm_tlv_router_mask_assigned,
                 {   "Assigned Router ID Mask",
                     "thread_nm.tlv.router_mask_assigned",
                     FT_BYTES, BASE_NONE, NULL, 0x0,
                     NULL,
                     HFILL
                  }
-            },
-            { &hf_thread_nm_tlv_nd_option,
+        },
+        { &hf_thread_nm_tlv_nd_option,
                 {   "ND Option",
                     "thread_nm.tlv.nd_option",
                     FT_BYTES, BASE_NONE, NULL, 0x0,
                     NULL,
                     HFILL
                 }
-            },
-            { &hf_thread_nm_tlv_nd_data,
+        },
+        { &hf_thread_nm_tlv_nd_data,
                 {   "ND Data",
                     "thread_nm.tlv.nd_data",
                     FT_BYTES, BASE_NONE, NULL, 0x0,
                     NULL,
                     HFILL
                 }
-            },
-            { &hf_thread_nm_tlv_timeout,
+        },
+        { &hf_thread_nm_tlv_timeout,
                 {   "Timeout",
                     "thread_nm.tlv.timeout",
                     FT_UINT32, BASE_DEC, NULL, 0x0,
                     NULL,
                     HFILL
-                }
+        }
             }
         };
 
@@ -3497,146 +4316,146 @@ proto_register_thread_bl(void)
 
             /* Generic TLV */
             { &hf_thread_bl_tlv,
-                {   "TLV",
-                    "thread_bl.tlv",
-                    FT_NONE, BASE_NONE, NULL, 0x0,
-                    "Type-Length-Value",
-                    HFILL
+            {   "TLV",
+                "thread_bl.tlv",
+                FT_NONE, BASE_NONE, NULL, 0x0,
+                "Type-Length-Value",
+                HFILL
                 }
             },
 
             { &hf_thread_bl_tlv_type,
-                {   "Type",
-                    "thread_bl.tlv.type",
-                    FT_UINT8, BASE_DEC, VALS(thread_bl_tlv_vals), 0x0,
-                    "Type of value",
-                    HFILL
+            {   "Type",
+                "thread_bl.tlv.type",
+                FT_UINT8, BASE_DEC, VALS(thread_bl_tlv_vals), 0x0,
+                "Type of value",
+                HFILL
                 }
             },
 
             { &hf_thread_bl_tlv_length,
-                {   "Length",
-                    "thread_bl.tlv.len",
-                    FT_UINT8, BASE_DEC, NULL, 0x0,
-                    "Length of value",
-                    HFILL
+            {   "Length",
+                "thread_bl.tlv.len",
+                FT_UINT8, BASE_DEC, NULL, 0x0,
+                "Length of value",
+                HFILL
                 }
             },
 
             { &hf_thread_bl_tlv_unknown,
-                {   "Unknown",
-                    "thread_bl.tlv.unknown",
-                    FT_BYTES, BASE_NONE, NULL, 0x0,
-                    "Unknown TLV, raw value",
-                    HFILL
+            {   "Unknown",
+                "thread_bl.tlv.unknown",
+                FT_BYTES, BASE_NONE, NULL, 0x0,
+                "Unknown TLV, raw value",
+                HFILL
                 }
             },
-    #if 0
+#if 0
             { &hf_thread_bl_tlv_sub_tlvs,
-                {  "Sub-TLV(s)",
-                    "thread_bl.tlv.sub_tlvs",
-                    FT_NONE, BASE_NONE, NULL, 0x0,
-                    NULL,
-                    HFILL
+            {  "Sub-TLV(s)",
+                "thread_bl.tlv.sub_tlvs",
+                FT_NONE, BASE_NONE, NULL, 0x0,
+                NULL,
+                HFILL
                 }
             },
-    #endif
-                /* Type-Specific TLV Fields */
-            { &hf_thread_bl_tlv_target_eid,
-                {   "Target EID",
-                    "thread_bl.tlv.target_eid",
-                    FT_IPv6, BASE_NONE, NULL, 0x0,
-                    NULL,
-                    HFILL
+#endif
+            /* Type-Specific TLV Fields */
+        { &hf_thread_bl_tlv_target_eid,
+        {   "Target EID",
+            "thread_bl.tlv.target_eid",
+            FT_IPv6, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL
                 }
-            },
+        },
 
-            { &hf_thread_bl_tlv_ext_mac_addr,
-            { "Extended MAC Address",
-                "thread_bl.tlv.ext_mac_addr",
-                FT_EUI64, BASE_NONE, NULL, 0x0,
-                NULL,
-                HFILL }
-            },
+        { &hf_thread_bl_tlv_ext_mac_addr,
+        { "Extended MAC Address",
+            "thread_bl.tlv.ext_mac_addr",
+            FT_EUI64, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
 
-            { &hf_thread_bl_tlv_rloc16,
-            { "RLOC16",
-                "thread_bl.tlv.rloc16",
-                FT_UINT16, BASE_HEX, NULL, 0x0,
-                NULL,
-                HFILL }
-            },
+        { &hf_thread_bl_tlv_rloc16,
+        { "RLOC16",
+            "thread_bl.tlv.rloc16",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
 
-            { &hf_thread_bl_tlv_ml_eid,
-            { "ML-EID",
-                "thread_bl.tlv.ml_eid",
-                FT_BYTES, BASE_NONE, NULL, 0x0,
-                NULL,
-                HFILL }
-            },
+        { &hf_thread_bl_tlv_ml_eid,
+        { "ML-EID",
+            "thread_bl.tlv.ml_eid",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
 
-            { &hf_thread_bl_tlv_status,
-            { "Status",
-                "thread_bl.tlv.status",
-                FT_UINT8, BASE_DEC, VALS(thread_bl_tlv_status_vals), 0x0,
-                NULL,
-                HFILL }
-            },
-    #if 0
-            { &hf_thread_bl_tlv_attached_time,
-            { "Attached Time",
-                "thread_bl.tlv.attached_time",
-                FT_UINT32, BASE_DEC, NULL, 0x0,
-                NULL,
-                HFILL }
-            },
-    #endif
-            { &hf_thread_bl_tlv_last_transaction_time,
-            { "Last Transaction Time",
-                "thread_bl.tlv.last_transaction_time",
-                FT_UINT32, BASE_DEC, NULL, 0x0,
-                NULL,
-                HFILL }
-            },
+        { &hf_thread_bl_tlv_status,
+        { "Status",
+            "thread_bl.tlv.status",
+            FT_UINT8, BASE_DEC, VALS(thread_bl_tlv_status_vals), 0x0,
+            NULL,
+            HFILL }
+        },
+#if 0
+        { &hf_thread_bl_tlv_attached_time,
+        { "Attached Time",
+            "thread_bl.tlv.attached_time",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+#endif
+        { &hf_thread_bl_tlv_last_transaction_time,
+        { "Last Transaction Time",
+            "thread_bl.tlv.last_transaction_time",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
 
-            { &hf_thread_bl_tlv_router_mask_id_seq,
-            { "ID Sequence",
-                "thread_bl.tlv.router_mask_id_seq",
-                FT_UINT8, BASE_DEC, NULL, 0x0,
-                NULL,
-                HFILL }
-            },
+        { &hf_thread_bl_tlv_router_mask_id_seq,
+        { "ID Sequence",
+            "thread_bl.tlv.router_mask_id_seq",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
 
-            { &hf_thread_bl_tlv_router_mask_assigned,
-            { "Assigned Router ID Mask",
-                "thread_bl.tlv.router_mask_assigned",
-                FT_BYTES, BASE_NONE, NULL, 0x0,
-                NULL,
-                HFILL }
-            },
+        { &hf_thread_bl_tlv_router_mask_assigned,
+        { "Assigned Router ID Mask",
+            "thread_bl.tlv.router_mask_assigned",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
 
-            { &hf_thread_bl_tlv_nd_option,
-            { "ND Option",
-                "thread_bl.tlv.nd_option",
-                FT_BYTES, BASE_NONE, NULL, 0x0,
-                NULL,
-                HFILL }
-            },
+        { &hf_thread_bl_tlv_nd_option,
+        { "ND Option",
+            "thread_bl.tlv.nd_option",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
 
-            { &hf_thread_bl_tlv_nd_data,
-            { "ND Data",
-                "thread_bl.tlv.nd_data",
-                FT_BYTES, BASE_NONE, NULL, 0x0,
-                NULL,
-                HFILL }
-            },
-            { &hf_thread_bl_tlv_timeout,
-            { "Timeout",
-                "thread_bl.tlv.timeout",
-                FT_UINT32, BASE_DEC, NULL, 0x0,
-                NULL,
-                HFILL }
-            }
+        { &hf_thread_bl_tlv_nd_data,
+        { "ND Data",
+            "thread_bl.tlv.nd_data",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        { &hf_thread_bl_tlv_timeout,
+        { "Timeout",
+            "thread_bl.tlv.timeout",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        }
 
 
 
@@ -3798,14 +4617,14 @@ proto_register_thread_address(void)
             FT_BYTES, BASE_NONE, NULL, 0x0,
             NULL,
             HFILL }
-        },
+		},
 
         { &hf_thread_address_tlv_timeout,
             { "Timeout",
             "thread_address.tlv.timeout",
             FT_UINT32, BASE_DEC, NULL, 0x0,
             NULL,
-            HFILL }
+            HFILL }	
         }
     };
 
@@ -3884,30 +4703,830 @@ proto_register_thread_dg(void)
             FT_BYTES, BASE_NONE, NULL, 0x0,
             "Unknown TLV, raw value",
             HFILL }
+        },
+
+        { &hf_thread_dg_tlv_mode_nwk_data,
+            { "Network Data",
+            "thread_diagnostic.tlv.mode.nwk_data",
+            FT_BOOLEAN, 8, TFS(&thread_dg_tlv_mode_nwk_data), THREAD_DG_CMD_CINFO_NWK_DATA,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_mode_device_type,
+            { "Device Type",
+            "thread_diagnostic.tlv.mode.device_type",
+            FT_BOOLEAN, 8, TFS(&thread_dg_tlv_mode_device_type), IEEE802154_CMD_CINFO_DEVICE_TYPE,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_mode_sec_data_req,
+            { "Secure Data Requests",
+            "thread_diagnostic.tlv.mode.sec_data_req",
+            FT_BOOLEAN, 8, NULL, THREAD_DG_CMD_CINFO_SEC_DATA_REQ,
+            NULL,
+            HFILL }
+        },
+	
+	    { &hf_thread_dg_tlv_mode_receiver_on_idle,
+            { "R(Receiver/rx)-on-idle",
+            "thread_diagnostic.tlv.mode.receiver_on_idle",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_mode_reserved1,
+            { "R1(Reserved)",
+            "thread_diagnostic.tlv.mode.reserved1",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+    
+	    { &hf_thread_dg_tlv_mode_reserved2,
+            { "R2(Reserved)",
+            "thread_diagnostic.tlv.mode.reserved2",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_mode_device_type_bit,
+            { "D(Device Type)",
+            "thread_diagnostic.tlv.mode.device_type_bit",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_mode_network_data,
+            { "N(Network Data)",
+            "thread_diagnostic.tlv.mode.network_data",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_mode_idle_rx,
+            { "Receive On When Idle",
+            "thread_diagnostic.tlv.mode.idle_rx",
+            FT_BOOLEAN, 8, NULL, IEEE802154_CMD_CINFO_IDLE_RX,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_timeout,
+            { "Timeout",
+            "thread_diagnostic.tlv.timeout",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            "Expected interval between transmissions in seconds",
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_max_child_timeout,
+           { "Max Timeout",
+            "thread_diagnostic.tlv.max_child_timeout",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_version,
+            { "Version",
+            "thread_diagnostic.tlv.version",
+            FT_UINT16, BASE_DEC, NULL, 0,
+            NULL,
+            HFILL}
+        },
+
+        { &hf_thread_dg_tlv_vendor_name,
+            { "Vendor Name",
+            "thread_diagnostic.tlv.vendor_name",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_vendor_model,
+            { "Vendor Model",
+            "thread_diagnostic.tlv.vendor_model",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_vendor_sw_ver,
+            { "Vendor Software Version",
+            "thread_diagnostic.tlv.vendor_sw_ver",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_thread_stack_ver,
+            { "Thread Stack Version",
+            "thread_diagnostic.tlv.thread_stack_ver",
+            FT_STRING, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+         /*Child TLV*/
+        { &hf_thread_dg_tlv_child_nwk_data,
+            { "Network Data",
+            "thread_diagnostic.tlv.child.nwk_data",
+            FT_BOOLEAN, 8, TFS(&thread_dg_tlv_child_nwk_data), THREAD_DG_CMD_CINFO_NWK_DATA,
+            NULL,
+            HFILL}
+        },
+
+        { &hf_thread_dg_tlv_child_device_type,
+            { "Device Type",
+            "thread_diagnostic.tlv.child.device_type",
+            FT_BOOLEAN, 8, TFS(&thread_dg_tlv_child_device_type), IEEE802154_CMD_CINFO_DEVICE_TYPE,
+            NULL,
+            HFILL}
+        },
+
+        { &hf_thread_dg_tlv_child_sec_data_req,
+            { "Secure Data Requests",
+            "thread_diagnostic.tlv.child.sec_data_req",
+            FT_BOOLEAN, 8, NULL, THREAD_DG_CMD_CINFO_SEC_DATA_REQ,
+            NULL,
+            HFILL}
+        },
+        { &hf_thread_dg_tlv_child_rx_on_idle,
+            { "Rx-on-when-idle (R)",
+            "thread_diagnostic.tlv.child.rx_on_idle",
+            FT_UINT8, BASE_DEC, NULL, 0x80,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_device_type_bit,
+            { "Device Type (D)",
+            "thread_diagnostic.tlv.child.device_type_bit",
+            FT_UINT8, BASE_HEX, NULL, 0x40,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_network_data,
+            { "Network Data (N)",
+            "thread_diagnostic.tlv.child.network_data",
+            FT_UINT8, BASE_HEX, NULL, 0x20,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_csl,
+            { "CSL Flag (C)",
+            "thread_diagnostic.tlv.child.csl",
+            FT_BOOLEAN, 8, NULL, 0x10,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_error_rates_tracking,
+            { "Error Rates Tracking (E)",
+            "thread_diagnostic.tlv.child.error_rates_tracking",
+            FT_BOOLEAN, 8, NULL, 0x08,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_reserved,
+            { "Reserved (Rsv)",
+            "thread_diagnostic.tlv.child.reserved",
+            FT_BOOLEAN, BASE_HEX, NULL, 0x07,
+            NULL,
+            HFILL }
+        },
+          
+        { &hf_thread_dg_tlv_rloc16,
+            { "RLOC16",
+            "thread_diagnostic.tlv.rloc16",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_ext_mac_addr,
+            { "Extended MAC Address",
+            "thread_diagnostic.tlv.ext_mac_addr",
+            FT_EUI64, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_thread_ver,
+            { "Thread Version",
+            "thread_diagnostic.tlv.thread_ver",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_timeout,
+            { "Timeout",
+            "thread_diagnostic.tlv.child.timeout",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_age,
+            { "Age",
+            "thread_diagnostic.tlv.child.age",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_connection_time,
+            { "Connection Time",
+            "thread_diagnostic.tlv.connection_time",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_supervision_interval,
+            { "Supervision Interval",
+            "thread_diagnostic.tlv.child.supervision_interval",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_link_margin,
+            { "Link Margin",
+            "thread_diagnostic.tlv.link_margin",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_avg_rssi,
+            { "Average RSSI",
+            "thread_diagnostic.tlv.avg_rssi",
+            FT_INT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_last_rssi,
+            { "Last RSSI",
+            "thread_diagnostic.tlv.last_rssi",
+            FT_INT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_frame_error_rate,
+            { "Frame Error Rate",
+            "thread_diagnostic.tlv.frame_error_rate",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_msg_error_rate,
+            { "Message Error Rate",
+            "thread_diagnostic.tlv.msg_error_rate",
+            FT_UINT16, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_queued_msg_count,
+            { "Queued Message Count",
+            "thread_diagnostic.tlv.child.queued_msg_count",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_csl_period,
+            { "CSL Period",
+            "thread_diagnostic.tlv.child.csl_period",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_csl_timeout,
+            { "CSL Timeout",
+            "thread_diagnostic.tlv.child.csl_timeout",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_child_csl_channel,
+            { "CSL Channel",
+            "thread_diagnostic.tlv.child.csl_channel",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_router_neighbor_error_rates_tracking,
+            { "Error Rates Tracking (E)",
+            "thread_diagnostic.tlv.router.neighbor.error_rates_tracking",
+            FT_BOOLEAN, 8, NULL, 0x80,
+            NULL,
+            HFILL }
+        },
+        
+        { &hf_thread_dg_tlv_router_neighbor_reserved,
+            { "Reserved (Rsv)",
+            "thread_diagnostic.tlv.router.neighbor.reserved",
+            FT_BOOLEAN, BASE_HEX, NULL, 0x7f,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_ipv6_addr,
+            { "IPV6 Address",
+            "thread_diagnostic.tlv.ipv6_addr",
+            FT_IPv6, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_answer_last_flag,
+            { "Last Answer Flag",
+            "thread_diagnostic.tlv.answer_last_flag",
+            FT_BOOLEAN, 8, NULL, 0x80,
+            "Query ID",
+            HFILL}
+        },
+
+        { &hf_thread_dg_tlv_answer_index,
+            { "Index",
+            "thread_diagnostic.tlv.answer_index",
+            FT_UINT16, BASE_HEX, NULL, 0x7fff,
+            NULL,
+            HFILL}
+        },
+
+        { &hf_thread_dg_tlv_query_id,
+            { "Query ID",
+            "thread_diagnostic.tlv.query_id",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL}
+        },
+
+        { &hf_thread_dg_tlv_radio_disabled_counter,
+            {"Radio Disabled Counter",
+            "thread_diagnostic.tlv.radio_disabled_counter",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_detached_role_counter,
+            {"Detached Role Counter",
+            "thread_diagnostic.tlv.detached_role_counter",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_child_role_counter,
+            {"Child Role Counter",
+            "thread_diagnostic.tlv.child_role_counter",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_router_role_counter,
+            {"Router Role Counter",
+            "thread_diagnostic.tlv.router_role_counter", 
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_leader_role_counter,
+            {"Leader Role Counter",
+            "thread_diagnostic.tlv.leader_role_counter",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_attach_attempts_counter,
+            {"Attach Attempts Counter",
+            "thread_diagnostic.tlv.attach_attempts_counter",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_partition_id_changes_counter,
+            {"Partition ID Changes Counter",
+            "thread_diagnostic.tlv.partition_id_changes_counter", 
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_better_partition_attach_attempts_counter,
+            {"Better Partition Attach Attempts Counter",
+            "thread_diagnostic.tlv.better_partition_attach_attempts_counter",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_new_parent_counter,
+            {"New Parent Counter",
+            "thread_diagnostic.tlv.new_parent_counter",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_total_tracking_time,
+            {"Total Tracking Time",
+            "thread_diagnostic.tlv.total_tracking_time",
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+            },
+
+        { &hf_thread_dg_tlv_radio_disabled_time,
+            {"Radio Disabled Time",
+            "thread_diagnostic.tlv.radio_disabled_time",
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_detached_role_time,
+            {"Detached Role Time",
+            "thread_diagnostic.tlv.detached_role_time",
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_child_role_time,
+            {"Child Role Time",
+            "thread_diagnostic.tlv.child_role_time", 
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_router_role_time,
+            {"Router Role Time",
+            "thread_diagnostic.tlv.router_role_time",
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_leader_role_time,
+            {"Leader Role Time",
+            "thread_diagnostic.tlv.leader_role_time", 
+            FT_UINT64, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+            },
+
+        { &hf_thread_dg_tlv_conn_flags,
+            { "Flags",
+            "thread_diagnostic.tlv.conn.flags",
+            FT_NONE, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_ipv6_addr_list,
+            { "IPv6 Address", 
+            "thread_diagnostic.tlv.ipv6_addr_list",
+            FT_IPv6, BASE_NONE, NULL, 0x0,
+            "IPv6 Address registered by the Thread device", 
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_conn_flags_pp,
+            { "Parent Priority",
+            "thread_diagnostic.tlv.conn.flags.pp",
+            FT_INT8, BASE_DEC, VALS(thread_dg_conn_tlv_flags_pp_enums), CONN_MASK_FLAGS_PP_MASK,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_conn_lq3,
+            { "Link Quality 3",
+            "thread_diagnostic.tlv.conn.lq3",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_conn_lq2,
+            { "Link Quality 2",
+            "thread_diagnostic.tlv.conn.lq2",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_conn_lq1,
+            { "Link Quality 1",
+            "thread_diagnostic.tlv.conn.lq1",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_conn_leader_cost,
+            { "Leader Cost",
+            "thread_diagnostic.tlv.conn.leader_cost",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_conn_id_seq,
+            { "ID Sequence",
+            "thread_diagnostic.tlv.conn.id_seq",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_conn_active_rtrs,
+            { "Active Routers",
+            "thread_diagnostic.tlv.conn.active_rtrs",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_conn_sed_buf_size,
+            { "SED Buffer Size",
+            "thread_diagnostic.tlv.conn.sed_buf_size",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_conn_sed_dgram_cnt,
+            { "SED Datagram Count",
+            "thread_diagnostic.tlv.conn.sed_dgram_cnt",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_addr16,
+           { "Address16",
+           "thread_diagnostic.tlv.addr16",
+           FT_UINT16, BASE_HEX, NULL, 0x0,
+           NULL,
+           HFILL }
+        },
+
+        { &hf_thread_dg_tlv_border_router_local_omr_prefix,
+            { "Border Router Local OMR Prefix",
+            "thread_diagnostic.tlv.border_router_local_omr_prefix",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_border_router_local_on_link_prefix,
+            { "Border Router Local On-link Prefix",
+            "thread_diagnostic.tlv.border_router_local_on_link_prefix",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_eui_64,
+            { "EUI-64",
+            "thread_diagnostic.tlv.eui_64",
+            FT_UINT64, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_mac_counter,
+           { "MAC Counter", 
+           "thread_diagnostic.tlv.mac_counter",
+            FT_UINT32, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_battery_level,
+           { "Battery Level", 
+            "thread_diagnostic.tlv.battery_level",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_supply_voltage,
+           { "Supply Voltage", 
+           "thread_diagnostic.tlv.supply_voltage",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_child_table_entry,
+           { "Child Table Entry",
+           "thread_diagnostic.tlv.child.table.entry",
+            FT_NONE, BASE_NONE, NULL, 0x0,
+            "Child Table entry containing timeout, ILQ, Child ID, and Mode", 
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_child_table_timeout,
+           { "Timeout", 
+           "thread_diagnostic.tlv.child.table.timeout",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_child_table_ilq,
+           { "Incoming Link Quality",
+           "thread_diagnostic.tlv.child.table.ilq",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_child_table_id,
+           { "Child ID", 
+           "thread_diagnostic.tlv.child.table.id",
+            FT_UINT16, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_child_table_mode,
+           { "Mode", 
+           "thread_diagnostic.tlv.child.table.mode",
+            FT_UINT8, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_channel_page,
+           { "Channel Page", 
+           "thread_diagnostic.tlv.channel_page",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_route64_id_seq,
+            { "Route64 ID Sequence", 
+            "thread_diagnostic.tlv.route64.id_seq",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_route64_id_mask,
+           { "Route64 ID Mask", 
+           "thread_diagnostic.tlv.route64.id_mask",
+            FT_UINT64, BASE_HEX, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_route64_entry,
+            { "Route64 Entry",
+            "thread_diagnostic.tlv.route64.entry",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            NULL,
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_route64_nbr_out,
+            { "Route64 Neighbor Out", 
+            "thread_diagnostic.tlv.route64.nbr_out",
+            FT_UINT8, BASE_DEC, NULL, 0x03,
+            "Outgoing Link Quality", 
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_route64_nbr_in,
+            { "Route64 Neighbor In", 
+            "thread_diagnostic.tlv.route64.nbr_in",
+            FT_UINT8, BASE_DEC, NULL, 0x0C,
+            "Incoming Link Quality", 
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_route64_cost,
+            { "Route64 Cost", 
+            "thread_diagnostic.tlv.route64.cost",
+            FT_UINT8, BASE_DEC, NULL, 0xF0,
+            "Route Cost", 
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_leader_data_partition_id,
+            { "Partition ID",
+            "thread_diagnostic.tlv.leader.data.partition_id",
+            FT_UINT32, BASE_HEX, NULL, 0x0,
+            "Thread Network Partition ID", 
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_leader_data_weighting,
+            { "Weighting",
+            "thread_diagnostic.tlv.leader.data.weighting",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            "Partition Weighting", 
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_leader_data_version,
+            { "Data Version",
+            "thread_diagnostic.tlv.leader.data.version",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            "Thread Data Version",
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_leader_data_stable_version,
+            { "Stable Data Version",
+            "thread_diagnostic.tlv.leader.data.stable_version",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            "Thread Stable Data Version",
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_leader_data_router_id,
+            { "Leader Router ID",
+            "thread_diagnostic.tlv.leader.data.router_id",
+            FT_UINT8, BASE_DEC, NULL, 0x0,
+            "Thread Leader Router ID", 
+            HFILL }
+        },
+
+/*       { &hf_thread_dg_tlv_network_data,
+            { "Network Data",
+            "thread_diagnostic.tlv.network_data",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            "Thread Network Data", 
+            HFILL }
+        },
+*/
+        { &hf_thread_dg_tlv_ldev_id_subject_pub_key_info,
+            { "LDevID Subject Public Key Info", 
+            "thread_diagnostic.tlv.ldev_id_subject_pub_key_info",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            "ASN.1 DER encoded data structure of LDevID subject public key info", 
+            HFILL }
+        },
+
+        { &hf_thread_dg_tlv_idev_id_certificate,
+            { "IDevID Certificate", 
+            "thread_diagnostic.tlv.idev_id_certificate",
+            FT_BYTES, BASE_NONE, NULL, 0x0,
+            "ASN.1 DER encoded X.509v3 IDevID certificate", 
+            HFILL }
         }
-    };
+   };
 
     static int *ett[] = {
         &ett_thread_dg,
         &ett_thread_dg_tlv,
+        &ett_thread_dg_conn_flg,
+        &ett_thread_dg_child_entry,
+        &ett_thread_dg_child_table,
+        &ett_thread_dg_router,
     };
 
-#if 0
     static ei_register_info ei[] = {
         { &ei_thread_dg_tlv_length_failed, { "thread_diagnostic.tlv_length_failed", PI_UNDECODED, PI_WARN, "TLV Length inconsistent", EXPFILL }},
         { &ei_thread_dg_len_size_mismatch, { "thread_diagnostic.len_size_mismatch", PI_UNDECODED, PI_WARN, "TLV Length & Size field disagree", EXPFILL }},
     };
 
     expert_module_t* expert_thread_dg;
-#endif
 
     proto_thread_dg = proto_register_protocol("Thread Diagnostics", "Thread Diagnostics", "thread_diagnostic");
     proto_register_field_array(proto_thread_dg, hf, array_length(hf));
     proto_register_subtree_array(ett, array_length(ett));
-#if 0
     expert_thread_dg = expert_register_protocol(proto_thread_dg);
     expert_register_field_array(expert_thread_dg, ei, array_length(ei));
-#endif
 
     thread_dg_handle = register_dissector("thread_diagnostic", dissect_thread_dg, proto_thread_dg);
 }
@@ -4118,8 +5737,8 @@ proto_register_thread_mc(void)
             NULL,
             HFILL }
         },
-
-         { &hf_thread_mc_tlv_sec_policy_ccm,
+		
+		 { &hf_thread_mc_tlv_sec_policy_ccm,
             { "Commercial Commissioning Mode Bit disabled",
             "thread_meshcop.tlv.sec_policy_ccm",
             FT_BOOLEAN, 8, TFS(&tfs_enabled_disabled), THREAD_MC_SEC_POLICY_MASK_CCM_MASK,
@@ -4166,15 +5785,15 @@ proto_register_thread_mc(void)
             NULL,
             HFILL }
         },
-
-        { &hf_thread_mc_tlv_sec_policy_rsv1,
+		
+		{ &hf_thread_mc_tlv_sec_policy_rsv1,
             { "Reserved Bits",
             "thread_meshcop.tlv.sec_policy_rsv",
             FT_UINT8, BASE_DEC, NULL, THREAD_MC_SEC_POLICY_MASK_RSV1_MASK,
             NULL,
             HFILL }
         },
-
+		
         { &hf_thread_mc_tlv_sec_policy_vr,
             { "Version-threshold for Routing",
             "thread_meshcop.tlv.sec_policy_vr",
@@ -4182,7 +5801,7 @@ proto_register_thread_mc(void)
             NULL,
             HFILL }
         },
-
+		
         { &hf_thread_mc_tlv_state,
             { "State",
             "thread_meshcop.tlv.state",
@@ -4422,8 +6041,8 @@ proto_register_thread_mc(void)
             NULL,
             HFILL }
         },
-
-         { &hf_thread_mc_tlv_domain_name,
+		
+		 { &hf_thread_mc_tlv_domain_name,
             { "Domain Name",
             "thread_meshcop.tlv.domain_name",
             FT_BYTES, BASE_NONE, NULL, 0x0,
@@ -4446,7 +6065,7 @@ proto_register_thread_mc(void)
             NULL,
             HFILL }
         },
-
+        
         { &hf_thread_mc_tlv_commissioner_signature,
             { "Commissioner Signature",
             "thread_meshcop.tlv.nmkp_commissioner_signature",
@@ -4454,7 +6073,7 @@ proto_register_thread_mc(void)
             NULL,
             HFILL }
         },
-
+        
 
         { &hf_thread_mc_tlv_ae_udp_port,
             { "AE UDP Port",
@@ -4463,7 +6082,7 @@ proto_register_thread_mc(void)
             NULL,
             HFILL }
         },
-
+        
         { &hf_thread_mc_tlv_nmkp_udp_port,
             { "NMKP UDP Port",
             "thread_meshcop.tlv.nmkp_udp_port",
@@ -4471,7 +6090,7 @@ proto_register_thread_mc(void)
             NULL,
             HFILL }
         },
-
+        
         { &hf_thread_mc_tlv_registrar_ipv6_addr,
             { "Registrar IPv6 Address",
             "thread_meshcop.tlv.registrar_ipv6_addr",
@@ -4479,7 +6098,7 @@ proto_register_thread_mc(void)
             NULL,
             HFILL }
         },
-
+        
         { &hf_thread_mc_tlv_registrar_hostname,
             { "Registrar IPv6 Hostname",
             "thread_meshcop.tlv.registrar_hostname",
@@ -4487,7 +6106,7 @@ proto_register_thread_mc(void)
             NULL,
             HFILL }
         },
-
+		
         { &hf_thread_mc_tlv_discovery_req_ver,
             { "Version",
             "thread_meshcop.tlv.discovery_req_ver",
@@ -4518,14 +6137,14 @@ proto_register_thread_mc(void)
             FT_BOOLEAN, 8, TFS(&tfs_allowed_not_allowed), THREAD_MC_DISCOVERY_RSP_MASK_N_MASK,
             NULL,
             HFILL }
-        },
+		},
 
         { &hf_thread_mc_tlv_discovery_rsp_c,
             { "Commercial Commissioning",
             "thread_meshcop.tlv.discovery_rsp_c",
             FT_BOOLEAN, 8, TFS(&tfs_supported_not_supported), THREAD_MC_DISCOVERY_RSP_MASK_C_MASK,
             NULL,
-            HFILL }
+            HFILL }	
         }
     };
 
@@ -4631,12 +6250,20 @@ proto_register_thread_nwd(void)
             "Has Route preference",
             HFILL }
         },
-
-        { &hf_thread_nwd_tlv_has_route_np,
+		
+		{ &hf_thread_nwd_tlv_has_route_np,
             { "NP",
             "thread_nwd.tlv.has_route.np",
             FT_UINT8, BASE_DEC, NULL, THREAD_NWD_TLV_HAS_ROUTE_NP,
             "Has Route NP",
+            HFILL }
+        },
+
+		{ &hf_thread_nwd_tlv_has_route_ap,
+            { "AP",
+            "thread_nwd.tlv.has_route.ap",
+            FT_UINT8, BASE_DEC, NULL, THREAD_NWD_TLV_HAS_ROUTE_AP,
+            "Has Route AP",
             HFILL }
         },
 
@@ -4751,8 +6378,8 @@ proto_register_thread_nwd(void)
             "Value of P_nd_dns",
             HFILL }
         },
-
-        { &hf_thread_nwd_tlv_border_router_dp,
+		
+		{ &hf_thread_nwd_tlv_border_router_dp,
             { "DP Flag",
             "thread_nwd.tlv.border_router.flag.dp",
             FT_BOOLEAN, 8, TFS(&tfs_available_not_available), THREAD_NWD_TLV_BORDER_ROUTER_DP,
@@ -4847,8 +6474,8 @@ proto_register_thread_nwd(void)
             "Service data in raw bytes",
             HFILL }
         },
-
-        { &hf_thread_nwd_tlv_service_s_data_seqno,
+		
+		{ &hf_thread_nwd_tlv_service_s_data_seqno,
         { "Service Data - BBR Sequence Number",
             "thread_nwd.tlv.service.s_data.seqno",
             FT_UINT8, BASE_DEC, NULL, 0x0,
@@ -4887,7 +6514,7 @@ proto_register_thread_nwd(void)
             "Server data in raw bytes",
             HFILL }
         },
-
+		
         // Thread 1.3 Service TLV code
 
         { &hf_thread_nwd_tlv_service_srp_dataset_identifier,
@@ -4921,7 +6548,7 @@ proto_register_thread_nwd(void)
             "Port Number of Unicast SRP Server",
             HFILL }
          }
-
+		
     };
 
     static int *ett[] = {
@@ -5029,6 +6656,7 @@ proto_register_thread(void)
     module_t *thread_module;
 
     proto_thread = proto_register_protocol("Thread", "Thread", "thread");
+    proto_thread_ie = proto_register_protocol("Thread IE", "Thread IE", "thread_ie");
 
     thread_module = prefs_register_protocol(proto_thread, NULL);
     prefs_register_obsolete_preference(thread_module, "thr_coap_decode");
@@ -5046,23 +6674,23 @@ proto_register_thread(void)
                                    "Automatically acquire Thread sequence counter",
                                    "Set if the Thread sequence counter should be automatically acquired from Key ID mode 2 MLE messages.",
                                    &thread_auto_acq_seq_ctr);
+	
+     static hf_register_info hf[] = {
+            { &hf_ieee802154_thread_ie,
+            { "IE header",                       "thread_ie", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
 
-     /*static hf_register_info hf[] = {
-        { &hf_ieee802154_thread_ie,
-        { "IE header",                       "thread_ie", FT_UINT16, BASE_HEX, NULL, 0x0, NULL, HFILL }},
-
-        { &hf_ieee802154_thread_ie_length,
-        { "Length",                           "thread_ie.length", FT_UINT16, BASE_DEC, NULL,
-                THREAD_IE_LENGTH_MASK, NULL, HFILL }}
+            { &hf_ieee802154_thread_ie_length,
+            { "Length",                           "thread_ie.length", FT_UINT16, BASE_DEC, NULL,
+                    THREAD_IE_LENGTH_MASK, NULL, HFILL }}
      };
 
       static int *ett[] = {
         &ett_thread_header_ie,
-     };*/
+     };
 
     register_init_routine(proto_init_thread);
-
-    // proto_register_field_array(proto_thread_ie, hf, array_length(hf));
+	
+	// proto_register_field_array(proto_thread_ie, hf, array_length(hf));
    // proto_register_subtree_array(ett, array_length(ett));
 
     /* Register Dissector */
@@ -5076,7 +6704,7 @@ proto_register_thread_coap(void)
     thread_coap_handle = register_dissector("thread_coap", dissect_thread_coap, proto_thread_coap);
 
     dissector_add_string("coap_tmf_media_type", "application/octet-stream", thread_coap_handle);
-    thread_coap_namespace = register_dissector_table("thread.coap_namespace", "Thread CoAP namespace", proto_thread_coap, FT_STRING, STRING_CASE_SENSITIVE);
+    thread_coap_namespace = register_dissector_table("thread.coap_namespace", "Thread CoAP namespace", proto_thread_coap, FT_STRING, BASE_NONE);
 }
 
 void
@@ -5135,7 +6763,7 @@ proto_reg_handoff_thread(void)
      * That is why there is a separate coap_tmf_media_type table and a
      * special CoAP-TMF dissector. (#14729).
      */
-    //dissector_add_string("media_type", "application/octet-stream", thread_coap_handle);
+    dissector_add_string("media_type", "application/octet-stream", thread_coap_handle);
 
     proto_coap = proto_get_id_by_filter_name("coap");
 }

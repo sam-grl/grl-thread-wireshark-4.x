@@ -251,7 +251,7 @@ ComponentText "The following components are available for installation."
 DirText "Choose a directory in which to install ${PROGRAM_NAME}."
 
 ; The default installation directory
-InstallDir $PROGRAMFILES64\${PROGRAM_NAME}
+InstallDir $PROGRAMFILES64\${PROGRAM_NAME}_Thread
 
 ; See if this is an upgrade; if so, use the old InstallDir as default
 InstallDirRegKey HKEY_LOCAL_MACHINE SOFTWARE\${PROGRAM_NAME} InstallDir

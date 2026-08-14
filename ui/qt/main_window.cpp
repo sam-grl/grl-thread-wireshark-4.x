@@ -520,6 +520,7 @@ void MainWindow::setMainWindowTitle(QString title)
         }
     }
 
+    title.append(QString(" [%1]").arg(" [W4.x_Thread-0.115]")); // This is a placeholder for the version info, replace with actual version if needed
     setWindowTitle(title);
     setWindowFilePath(NULL);
 }

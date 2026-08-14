@@ -1561,7 +1561,7 @@ get_persconffile_dir_no_profile(const char* app_env_var_prefix)
          * binaries as built for NSIS and WiX, so if the user is running
          * tshark from the PortableApps directory, how do we tell? (#20095)
          */
-        env = g_getenv("WIRESHARK_APPDATA");
+        env = g_getenv("WIRESHARK_APPDATA_THREAD");
     }
 #endif
     if (env != NULL) {
