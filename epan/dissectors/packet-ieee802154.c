@@ -2154,7 +2154,7 @@ dissect_ieee802154(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
     /* Set the default FCS length based on the FCS type in the configuration */
     fcs_len = ieee802154_fcs_type_len(fcs_type);
 
-    if (fcs_type == IEEE802154_CC24XX_METADATA) {
+    if (ieee802154_fcs_type == IEEE802154_CC24XX_METADATA) {
         options = DISSECT_IEEE802154_OPTION_CC24xx;
     }
 
@@ -2981,11 +2981,10 @@ ieee802154_dissect_header(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, u
          */
         set_address(&pinfo->dl_src, AT_EUI64, 8, p_addr);
         copy_address_shallow(&pinfo->src, &pinfo->dl_src);
-            proto_tree_add_item(ieee802154_tree, hf_ieee802154_src64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
+                    proto_tree_add_item(ieee802154_tree, hf_ieee802154_src64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
             ti = proto_tree_add_item(ieee802154_tree, hf_ieee802154_addr64, tvb, offset, 8, ENC_LITTLE_ENDIAN);
             proto_item_set_generated(ti);
             proto_item_set_hidden(ti);
-
         offset += 8;
     }
 
@@ -4715,7 +4714,7 @@ dissect_mpx_ie(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *ies_tree, void
         case IEEE802159_MPX_FULL_FRAME_NO_MUXID:
             break;  // nothing to do
         case IEEE802159_MPX_NON_LAST_FRAGMENT:
-            proto_tree_add_item_ret_uint8(tree, hf_ieee802159_mpx_fragment_number, tvb, offset, 1, ENC_LITTLE_ENDIAN, &fragment_number);
+                        proto_tree_add_item_ret_uint8(tree, hf_ieee802159_mpx_fragment_number, tvb, offset, 1, ENC_LITTLE_ENDIAN, &fragment_number);
             offset += 1;
             if (fragment_number == 0) {
                 proto_tree_add_item(tree, hf_ieee802159_mpx_total_frame_size, tvb, offset, 2, ENC_LITTLE_ENDIAN);
