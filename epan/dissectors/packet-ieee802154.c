@@ -2154,7 +2154,7 @@ dissect_ieee802154(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void* da
     /* Set the default FCS length based on the FCS type in the configuration */
     fcs_len = ieee802154_fcs_type_len(fcs_type);
 
-    if (ieee802154_fcs_type == IEEE802154_CC24XX_METADATA) {
+    if (fcs_type == IEEE802154_CC24XX_METADATA) {
         options = DISSECT_IEEE802154_OPTION_CC24xx;
     }
 
@@ -3226,8 +3226,8 @@ unsigned ieee802154_dissect_frame_payload(tvbuff_t *tvb, packet_info *pinfo, pro
                 break;
 
             case IEEE802154_FCF_DATA:
-                /* Sanity-check for empty payload only. */
-                if (!tvb_reported_length(payload_tvb)) {
+                /* Sanity-check. */
+                if ((!fcs_ok && ieee802154_fcs_ok) || !tvb_reported_length(payload_tvb)) {
                     call_data_dissector(payload_tvb, pinfo, tree);
                     break;
                 }
@@ -3245,11 +3245,6 @@ unsigned ieee802154_dissect_frame_payload(tvbuff_t *tvb, packet_info *pinfo, pro
                 /* Try heuristic dissection. */
                 if (dissector_try_heuristic(ieee802154_heur_subdissector_list, payload_tvb, pinfo, tree, &hdtbl_entry, packet)) break;
                 /* Fall-through to dump undissectable payloads. */
-                /* Only reject with bad FCS after all dissectors have been tried. */
-                if ((!fcs_ok && ieee802154_fcs_ok)) {
-                    call_data_dissector(payload_tvb, pinfo, tree);
-                    break;
-                }
                 /* FALL THROUGH */
             default:
                 /* Could not subdissect, call the data dissector instead. */
