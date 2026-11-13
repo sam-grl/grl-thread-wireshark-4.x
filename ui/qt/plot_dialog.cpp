@@ -20,8 +20,9 @@
 #include <wsutil/report_message.h>
 #include <ui/preference_utils.h>
 #include <ui/qt/utils/qt_ui_utils.h>
+#include <ui/qt/utils/themes/themed_icon.h>
 #include <ui/qt/utils/color_utils.h>
-#include <ui/qt/utils/theme_manager.h>
+#include <ui/qt/utils/plot_theme.h>
 #include <ui/qt/widgets/resize_header_view.h>
 
 #include <ui/qt/widgets/qcp_spacer_legend_item.h>
@@ -102,9 +103,8 @@ extern "C" {
 } // extern "C"
 
 PlotDialog::PlotDialog(QWidget& parent, CaptureFile& cf) :
-    WiresharkDialog(parent, cf),
+    GraphDialog(parent, cf, plotColColor),
     ui(new Ui::PlotDialog),
-    uat_model_(nullptr),
     uat_delegate_(nullptr),
     base_graph_(nullptr),
     start_time_(qQNaN()),
@@ -123,14 +123,14 @@ PlotDialog::PlotDialog(QWidget& parent, CaptureFile& cf) :
     setWindowSubtitle(tr("Plots"));
     setAttribute(Qt::WA_DeleteOnClose, true);
 
-    ui->newToolButton->setIconByName("list-add");
-    ui->deleteToolButton->setIconByName("list-remove");
-    ui->copyToolButton->setIconByName("list-copy");
-    ui->clearToolButton->setIconByName("list-clear");
-    ui->moveUpwardsToolButton->setIconByName("list-move-up");
-    ui->moveDownwardsToolButton->setIconByName("list-move-down");
+    ui->newToolButton->setIcon(ThemedIcon("list-add"));
+    ui->deleteToolButton->setIcon(ThemedIcon("list-remove"));
+    ui->copyToolButton->setIcon(ThemedIcon("list-copy"));
+    ui->clearToolButton->setIcon(ThemedIcon("list-clear"));
+    ui->moveUpwardsToolButton->setIcon(ThemedIcon("list-move-up"));
+    ui->moveDownwardsToolButton->setIcon(ThemedIcon("list-move-down"));
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     ui->newToolButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->deleteToolButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->copyToolButton->setAttribute(Qt::WA_MacSmallSize, true);
@@ -148,9 +148,6 @@ PlotDialog::PlotDialog(QWidget& parent, CaptureFile& cf) :
     copy_profile_bt_ = new CopyFromProfileButton(this, "plots", tr("Copy plots from another profile."));
     ui->rightButtonBox->addButton(copy_profile_bt_, QDialogButtonBox::ActionRole);
     connect(copy_profile_bt_, &CopyFromProfileButton::copyProfile, this, &PlotDialog::copyFromProfile);
-
-    connect(ThemeManager::instance(), &ThemeManager::themeChanged,
-            this, &PlotDialog::onThemeChanged);
 
     QPushButton* close_bt = ui->rightButtonBox->button(QDialogButtonBox::Close);
     if (close_bt) close_bt->setDefault(true);
@@ -232,7 +229,6 @@ PlotDialog::PlotDialog(QWidget& parent, CaptureFile& cf) :
     // Set the bottom margin to 0.
     plot->axisRect(0)->setAutoMargins(QCP::MarginSides(QCP::msAll).setFlag(QCP::msBottom, false));
     plot->axisRect(0)->setMargins(QMargins());
-    plot->axisRect(0)->setBackground(QBrush(QColor::fromRgb(162, 210, 255)));
     // And make sure it uses as little vertical space as possible.
     plot->axisRect(0)->setMinimumSize(0, 0);
     plot->axisRect(0)->setMaximumSize(QWIDGETSIZE_MAX, 0);
@@ -276,6 +272,19 @@ PlotDialog::PlotDialog(QWidget& parent, CaptureFile& cf) :
     rubber_band_ = new QRubberBand(QRubberBand::Rectangle, plot);
     rubber_band_->setVisible(false);
     tracer_ = new QCPItemTracer(plot);
+
+    // PlotTheme recolors every axis with the text color; with multiple
+    // y axes each value axis follows its graph instead.
+    PlotTheme::track(plot, [this]() {
+        ui->plot->applyMarkerColors();
+        if (!ui->actionEnableMultiYAxes->isChecked()) {
+            return;
+        }
+        for (int i = 0; i < ui->plot->graphCount(); i++) {
+            QCPGraph *graph = ui->plot->graph(i);
+            Plot::setAxisColor(graph->valueAxis(), graph->pen());
+        }
+    });
 }
 
 void PlotDialog::initialize(QWidget& parent, uat_field_t* plot_fields, bool show_default)
@@ -370,7 +379,8 @@ void PlotDialog::loadProfileGraphs(uat_field_t* plot_fields)
         connect(mainApp, &MainApplication::profileChanging, PlotDialog::applyChanges);
     }
 
-    uat_model_ = static_uat_model_;
+    setUatModel(static_uat_model_);
+
     uat_delegate_ = new UatDelegate(ui->plotUat);
     ui->plotUat->setModel(uat_model_);
     ui->plotUat->setItemDelegate(uat_delegate_);
@@ -482,6 +492,7 @@ QCPAxisRect* PlotDialog::getAxisRect(int idx) {
         {
             axis->setLayer("axes");
             axis->grid()->setLayer("grid");
+            PlotTheme::applyToAxis(axis);
         }
         axisRect->setAutoMargins(QCP::MarginSides(QCP::msLeft | QCP::msRight));
         axisRect->setMargins(QMargins());
@@ -524,7 +535,7 @@ void PlotDialog::syncPlotSettings(int row)
     QRgb color = uat_model_->data(uat_model_->index(row, plotColColor), Qt::DecorationRole).value<QColor>().rgb();
     plot->setColor(color);
     Plot::setAxisColor(plot->graph()->valueAxis(),
-        !ui->actionEnableMultiYAxes->isChecked() ? QPen(Qt::black) : QPen(color));
+        !ui->actionEnableMultiYAxes->isChecked() ? QPen(PlotTheme::textColor()) : QPen(color));
     QString data_str = uat_model_->data(uat_model_->index(row, plotColStyle)).toString();
     plot->setPlotStyle((Graph::PlotStyles)str_to_val(qUtf8Printable(data_str), plot_graph_style_vs, 0));
     plot->setYAxisFactor(uat_model_->data(uat_model_->index(row, plotColYAxisFactor)).toDouble());
@@ -543,38 +554,6 @@ void PlotDialog::syncPlotSettings(int row)
     scheduleReplot();
 }
 
-void PlotDialog::onThemeChanged()
-{
-    if (!uat_model_)
-        return;
-
-    ThemeManager *tm = ThemeManager::instance();
-    bool anyUpdated = false;
-    for (int row = 0; row < uat_model_->rowCount(); ++row) {
-        const QColor current = uat_model_->data(
-            uat_model_->index(row, plotColColor), Qt::DecorationRole
-        ).value<QColor>();
-
-        // Only refresh rows the user has not customized — i.e. rows whose
-        // current color still matches the theme default we last recorded.
-        if (!themeDefaultColors_.contains(row) ||
-            themeDefaultColors_.value(row) != current)
-            continue;
-
-        const QColor next = tm->graphColor(row);
-        if (next == current)
-            continue;
-
-        uat_model_->setData(uat_model_->index(row, plotColColor),
-                            next, Qt::DecorationRole);
-        themeDefaultColors_.insert(row, next);
-        syncPlotSettings(row);
-        anyUpdated = true;
-    }
-    if (anyUpdated)
-        scheduleReplot();
-}
-
 int PlotDialog::getLastPlotIdx()
 {
     int maxPlot = 0;
@@ -590,10 +569,11 @@ int PlotDialog::getLastPlotIdx()
 }
 
 void PlotDialog::addPlot(bool checked, const QString& name, const QString& dfilter,
-    QColor graphColor, Graph::PlotStyles style, const QString& yfield, double y_axis_factor)
+    Graph::PlotStyles style, const QString& yfield, double y_axis_factor)
 {
     if (!uat_model_) return;
 
+    const QColor graphColor = newGraphColor();
     QVariantList newRowData;
     newRowData.append(checked ? Qt::Checked : Qt::Unchecked);
     newRowData.append(getLastPlotIdx() + 1);
@@ -606,9 +586,6 @@ void PlotDialog::addPlot(bool checked, const QString& name, const QString& dfilt
 
     QModelIndex newIndex = uat_model_->appendEntry(newRowData);
     if (newIndex.isValid()) {
-        // Record the theme-derived default so onThemeChanged() can refresh
-        // it later without overwriting subsequent user customizations.
-        themeDefaultColors_.insert(newIndex.row(), graphColor);
         ui->plotUat->setCurrentIndex(newIndex);
     }
     else {
@@ -645,17 +622,15 @@ void PlotDialog::addPlot(bool checked, const QString& dfilter, const QString& yf
     else {
         graph_name = yfield;
     }
-    QColor graphColor = ThemeManager::instance()->graphColor(uat_model_->rowCount());
-    addPlot(checked, std::move(graph_name), dfilter, graphColor, Graph::psLine, yfield);
+    addPlot(checked, std::move(graph_name), dfilter, Graph::psLine, yfield);
 }
 
 void PlotDialog::addDefaultPlot(bool enabled, bool filtered)
 {
-    QColor graphColor = filtered ? ThemeManager::instance()->graphColor(0) : ThemeManager::instance()->graphDefaultColor();
     QString name = filtered ? tr("Seq. num.") : tr("Frame num.");
     QString dfilter = filtered ? "tcp.srcport == 80" : QString();
     QString yfield = filtered ? "tcp.seq" : "frame.number";
-    addPlot(enabled, name, dfilter, graphColor, filtered ? Graph::psDotStepLine : Graph::psLine, yfield);
+    addPlot(enabled, name, dfilter, filtered ? Graph::psDotStepLine : Graph::psLine, yfield);
 }
 
 void PlotDialog::captureFileClosing()
@@ -679,7 +654,7 @@ void PlotDialog::captureFileClosing()
     // disabled, updating the model from elsewhere (e.g., other dialogs)
     // will still change it, so we'd need to copy the information into
     // a new model.
-    uat_model_ = nullptr;
+    setUatModel(nullptr);
     ui->plotUat->setModel(nullptr);
     ui->plotUat->setVisible(false);
 
@@ -796,21 +771,7 @@ void PlotDialog::modelRowsMoved(const QModelIndex& source, int sourceStart, int 
     // Either destinationRow < sourceStart, or destinationRow > sourceEnd.
     // When moving rows down the same parent, the rows are placed _before_
     // destinationRow, otherwise it's the row to which items are moved.
-    if (destinationRow < sourceStart) {
-        for (int i = 0; i <= sourceEnd - sourceStart; i++) {
-            // When moving up the same parent, moving an earlier
-            // item doesn't change the row.
-            plots_.move(sourceStart + i, destinationRow + i);
-        }
-    }
-    else {
-        for (int i = 0; i <= sourceEnd - sourceStart; i++) {
-            // When moving down the same parent, moving an earlier
-            // item means the next items move up (so all the moved
-            // rows are always at sourceStart.)
-            plots_.move(sourceStart, destinationRow - 1);
-        }
-    }
+    moveListRows(plots_, sourceStart, sourceEnd, destinationRow);
 
     // setting a QCPLayerable to its current layer moves it to the end
     // as though it were the last added. Do that for all the plottables
@@ -1967,12 +1928,13 @@ void PlotDialog::on_actionEnableMultiYAxes_triggered(bool checked)
                 QCPAxis* y_axis = axisRect->addAxis(type);
                 y_axis->setLayer("axes");
                 y_axis->grid()->setLayer("grid");
+                PlotTheme::applyToAxis(y_axis);
                 graph->setValueAxis(y_axis);
                 axes << y_axis;
             } else {
                 graph->setValueAxis(defaultValueAxis);
             }
-            Plot::setAxisColor(graph->valueAxis(), !checked ? QPen(Qt::black) : graph->pen());
+            Plot::setAxisColor(graph->valueAxis(), !checked ? QPen(PlotTheme::textColor()) : graph->pen());
         }
         for (QCPAxis* axis : axisRect->axes(QCPAxis::atLeft | QCPAxis::atRight)) {
             if (!axes.contains(axis) && axis->visible() && axis != defaultValueAxis) { // keep the default y axis
@@ -1980,7 +1942,7 @@ void PlotDialog::on_actionEnableMultiYAxes_triggered(bool checked)
             }
         }
         if (graphs.isEmpty()) {
-            Plot::setAxisColor(defaultValueAxis, QPen(Qt::black));
+            Plot::setAxisColor(defaultValueAxis, QPen(PlotTheme::textColor()));
         }
         QList<QCPAxis*> bottomAxes = axisRect->axes(QCPAxis::atBottom);
         QList<QCPAxis*> leftRightAxes = axisRect->axes(QCPAxis::atLeft | QCPAxis::atRight);

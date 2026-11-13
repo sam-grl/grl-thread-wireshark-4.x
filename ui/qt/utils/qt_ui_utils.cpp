@@ -42,12 +42,16 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QFontDatabase>
+#include <QGroupBox>
+#include <QLabel>
+#include <QMessageBox>
+#include <QPalette>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QUrl>
 #include <QScreen>
 
-#if defined(Q_OS_MAC)
+#if defined(Q_OS_MACOS)
 #include <ui/macosx/cocoa_bridge.h>
 #elif !defined(Q_OS_WIN) && defined(QT_DBUS_LIB)
 #include <QtDBus/QDBusConnection>
@@ -236,6 +240,51 @@ void smooth_font_size(QFont &font) {
     }
 }
 
+// QApplication::font() has an empty resolve mask, so a child font derived
+// from it would resolve weight and size against a parent's bold, larger
+// font. Mark both as explicitly set so a reset to it takes effect.
+static QFont explicit_application_font()
+{
+    QFont font = QApplication::font();
+    font.setWeight(font.weight());
+    font.setPointSizeF(font.pointSizeF());
+    return font;
+}
+
+void set_section_title_font(QGroupBox *box)
+{
+    // Qt propagates a widget's font to its children, so set the emphasized
+    // font on the group box (which renders its title with it), then restore
+    // the font each widget inside had so only the title grows. That also
+    // keeps the smaller font of widgets with Qt::WA_MacSmallSize.
+    const QList<QWidget *> children = box->findChildren<QWidget *>();
+    QList<QFont> child_fonts;
+    for (const QWidget *child : children) {
+        QFont font = child->font();
+        font.setWeight(font.weight());
+        font.setPointSizeF(font.pointSizeF());
+        child_fonts.append(font);
+    }
+    QFont title_font = explicit_application_font();
+    title_font.setBold(true);
+    title_font.setPointSizeF(title_font.pointSizeF() + 2);
+    box->setFont(title_font);
+    for (qsizetype i = 0; i < children.size(); i++) {
+        children[i]->setFont(child_fonts[i]);
+    }
+}
+
+void set_hint_label_style(QLabel *label)
+{
+    QFont hint_font = explicit_application_font();
+    hint_font.setItalic(true);
+    label->setFont(hint_font);
+    QPalette hint_palette = label->palette();
+    hint_palette.setColor(QPalette::WindowText,
+                          hint_palette.color(QPalette::Disabled, QPalette::WindowText));
+    label->setPalette(hint_palette);
+}
+
 bool qActionLessThan(const QAction * a1, const QAction * a2) {
     return a1->text().compare(a2->text()) < 0;
 }
@@ -265,7 +314,7 @@ void desktop_show_in_folder(const QString file_path)
     QString path = QDir::toNativeSeparators(file_path);
     arguments << "/select," << path + "";
     success = QProcess::startDetached(command, arguments);
-#elif defined(Q_OS_MAC)
+#elif defined(Q_OS_MACOS)
     CocoaBridge::showInFinder(file_path.toUtf8());
     success = true;
 #elif defined(QT_DBUS_LIB)
@@ -313,6 +362,26 @@ void desktop_show_in_folder(const QString file_path)
         QFileInfo file_info(file_path);
         QDesktopServices::openUrl(QUrl::fromLocalFile(file_info.dir().absolutePath()));
     }
+}
+
+bool desktop_open_folder(const QString &dir_path, QWidget *parent)
+{
+    if (dir_path.isEmpty())
+        return false;
+
+    if (!QDir(dir_path).exists()) {
+        if (QMessageBox::question(parent, QObject::tr("The directory does not exist"),
+                                  QObject::tr("Should the directory %1 be created?").arg(dir_path))
+                != QMessageBox::Yes)
+            return false;
+        if (!QDir().mkpath(dir_path)) {
+            QMessageBox::warning(parent, QObject::tr("The directory could not be created"),
+                                 QObject::tr("The directory %1 could not be created.").arg(dir_path));
+            return false;
+        }
+    }
+    const QUrl url = QUrl::fromLocalFile(dir_path);
+    return url.isValid() && QDesktopServices::openUrl(url);
 }
 
 bool rect_on_screen(const QRect &rect)

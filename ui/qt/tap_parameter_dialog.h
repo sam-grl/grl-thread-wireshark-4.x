@@ -158,6 +158,12 @@ signals:
      */
     void updateFilter(QString filter);
 
+    /**
+     * @brief Emitted to navigate the packet list to a given frame.
+     * @param packet_num The frame number to select.
+     */
+    void goToPacket(int packet_num);
+
 public slots:
 
 protected:
@@ -243,14 +249,6 @@ private:
      * @return Filter expression string, or an empty string if no filter applies.
      */
     virtual const QString filterExpression() { return QString(); }
-
-    /**
-     * @brief Converts a QVariant cell value to a plain-text string for clipboard export.
-     * @param var   The QVariant value to convert.
-     * @param width Minimum field width for padding; 0 for no padding.
-     * @return Plain-text representation of @p var.
-     */
-    QString itemDataToPlain(QVariant var, int width = 0);
 
     /**
      * @brief Returns the column data for a tree item as an ordered list of QVariants,

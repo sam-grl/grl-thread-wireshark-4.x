@@ -583,16 +583,20 @@ configuration_init_w32(const char* app_flavor, const char* arg0 _U_)
         if (progfile_dir != NULL) {
             /* We succeeded. */
             trim_progfile_dir(app_flavor);
-            /* Now try to figure out if we're running in a build directory. */
+            /*
+             * Now try to figure out if we're running in a build directory.
+             * Look for the static ui library, which is built next to the
+             * executables but never installed.
+             */
 #ifdef HAVE_MSYSTEM
-            char *wsutil_lib = g_build_filename(progfile_dir, "libwsutil.dll.a", (char *)NULL);
+            char *ui_lib = g_build_filename(progfile_dir, "libui.a", (char *)NULL);
 #else
-            char *wsutil_lib = g_build_filename(progfile_dir, "wsutil.lib", (char *)NULL);
+            char *ui_lib = g_build_filename(progfile_dir, "ui.lib", (char *)NULL);
 #endif /* HAVE_MSYSTEM */
-            if (file_exists(wsutil_lib)) {
+            if (file_exists(ui_lib)) {
                 running_in_build_directory_flag = true;
             }
-            g_free(wsutil_lib);
+            g_free(ui_lib);
         } else {
             /*
              * OK, no. What do we do now?
@@ -1050,7 +1054,14 @@ get_datafile_dir(const char* app_env_var_prefix)
          * If so, perhaps we should read that from the registry,
          * instead.
          */
-        if (progfile_dir != NULL) {
+        if (progfile_dir != NULL && running_in_build_directory_flag) {
+            /*
+             * We're running from the build directory, where
+             * each application has its own share/<app> data
+             * subdirectory.
+             */
+            datafile_dir = g_build_filename(progfile_dir, "share", app_lower, (char *)NULL);
+        } else if (progfile_dir != NULL) {
             /*
              * Yes, we do; use that.
              */
@@ -1074,11 +1085,13 @@ get_datafile_dir(const char* app_env_var_prefix)
          * if we're started with special privileges, so we need
          * only check it; we don't need to call started_with_special_privs().)
          *
-         * Data files (dtds/, radius/, etc.) are copied to the build
-         * directory during the build which also contains executables. A special
-         * exception is macOS (when built with an app bundle).
+         * Data files (dtds/, radius/, etc.) are copied to the share/<app>
+         * subdirectory of the build directory during the build. The
+         * build directory also contains executables, and is shared by
+         * all applications. A special exception is macOS (when built with
+         * an app bundle).
          */
-        datafile_dir = g_strdup(progfile_dir);
+        datafile_dir = g_build_filename(progfile_dir, "share", app_lower, (char *)NULL);
     } else {
         if (g_path_is_absolute(DATA_DIR)) {
             datafile_dir = g_build_filename(DATA_DIR, app_lower, (char *)NULL);
@@ -2467,6 +2480,15 @@ file_exists(const char *fname)
     } else {
         return true;
     }
+}
+
+char *
+filename_sanitize(const char *name, char replacement)
+{
+    if (!name) {
+        return NULL;
+    }
+    return g_strdelimit(g_strdup(name), WS_FILENAME_RESERVED_CHARS, replacement);
 }
 
 bool config_file_exists_with_entries(const char *fname, char comment_char)

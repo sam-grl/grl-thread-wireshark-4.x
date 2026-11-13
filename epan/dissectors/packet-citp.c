@@ -1,7 +1,7 @@
 /* packet-citp.c
  * Routines for CITP packet disassembly
  *
- * Copyright (c) 2025 by Matt Morris <mattm.dev.1[AT]gmail.com>
+ * Copyright (c) 2025-2026 by Matt Morris <mattm.dev.1[AT]gmail.com>
  *
  * Wireshark - Network traffic analyzer
  * By Gerald Combs <gerald@wireshark.org>
@@ -10,6 +10,7 @@
  * Specification:
  * https://bitbucket.org/lars_wernlund/citp/src/master/
  * https://www.capture.se/Portals/0/Downloads/CITP%20CAEX%20Specification%20F.pdf?ver=2020-07-03-093027-283
+ * https://www.capture.se/Portals/0/Downloads/CITP%20CAEX%20Specification%20G.md?ver=edojFmx_8nA6dtzf_hvPJQ%3d%3d
  * http://www.techref.info/web/prod/cap/data/citp.pdf
  *
  *
@@ -23,6 +24,7 @@
 #include <epan/tfs.h>
 #include <epan/conversation.h>
 #include <epan/expert.h>
+#include <epan/proto_data.h>
 #include "packet-tcp.h"
 
 
@@ -47,13 +49,17 @@
 #define CITP_PINF_PNAM MAKE_TYPE_VAL('P', 'N', 'a', 'm')
 #define CITP_PINF_PLOC MAKE_TYPE_VAL('P', 'L', 'o', 'c')
 
-#define CITP_SDMX_CAPA MAKE_TYPE_VAL('C', 'a', 'p', 'a')
-#define CITP_SDMX_UNAM MAKE_TYPE_VAL('U', 'N', 'a', 'm')
-#define CITP_SDMX_ENID MAKE_TYPE_VAL('E', 'n', 'I', 'd')
-#define CITP_SDMX_CHBK MAKE_TYPE_VAL('C', 'h', 'B', 'k')
-#define CITP_SDMX_CHLS MAKE_TYPE_VAL('C', 'h', 'L', 's')
-#define CITP_SDMX_SXSR MAKE_TYPE_VAL('S', 'X', 'S', 'r')
-#define CITP_SDMX_SXUS MAKE_TYPE_VAL('S', 'X', 'U', 'S')
+#define CITP_SDMX_CAPA  MAKE_TYPE_VAL('C', 'a', 'p', 'a')
+#define CITP_SDMX_UNAM  MAKE_TYPE_VAL('U', 'N', 'a', 'm')
+#define CITP_SDMX_UNAMW MAKE_TYPE_VAL('U', 'N', 'a', 'n')
+#define CITP_SDMX_ENID  MAKE_TYPE_VAL('E', 'n', 'I', 'd')
+#define CITP_SDMX_CHBK  MAKE_TYPE_VAL('C', 'h', 'B', 'k')
+#define CITP_SDMX_CHBKW MAKE_TYPE_VAL('C', 'h', 'B', 'l')
+#define CITP_SDMX_CHLS  MAKE_TYPE_VAL('C', 'h', 'L', 's')
+#define CITP_SDMX_CHLSW MAKE_TYPE_VAL('C', 'h', 'L', 't')
+#define CITP_SDMX_SXSR  MAKE_TYPE_VAL('S', 'X', 'S', 'r')
+#define CITP_SDMX_SXUS  MAKE_TYPE_VAL('S', 'X', 'U', 'S')
+#define CITP_SDMX_SXUSW MAKE_TYPE_VAL('S', 'X', 'U', 'T')
 
 #define CITP_FPTC_PTCH MAKE_TYPE_VAL('P', 't', 'c', 'h')
 #define CITP_FPTC_UPTC MAKE_TYPE_VAL('U', 'P', 't', 'c')
@@ -95,12 +101,16 @@
 #define CITP_CAEX_CUE_RECORD           0x00010200
 #define CITP_CAEX_CUE_CLEAR_CAPA       0x00010300
 #define CITP_CAEX_CUE_CLEAR            0x00010400
+#define CITP_CAEX_SHOW_SYNC_VERSION    0x00020102
 #define CITP_CAEX_SHOW_ENTER           0x00020100
+#define CITP_CAEX_SHOW_ENTER_V2        0x00020103
 #define CITP_CAEX_SHOW_LEAVE           0x00020101
 #define CITP_CAEX_SET_TRANS_SPACE      0x00020150
 #define CITP_CAEX_FIXTURE_LIST_REQ     0x00020200
 #define CITP_CAEX_FIXTURE_LIST         0x00020201
+#define CITP_CAEX_FIXTURE_LIST_V2      0x00020205
 #define CITP_CAEX_FIXTURE_MODIFY       0x00020202
+#define CITP_CAEX_FIXTURE_MODIFY_V2    0x00020206
 #define CITP_CAEX_FIXTURE_REMOVE       0x00020203
 #define CITP_CAEX_FIXTURE_ID           0x00020204
 #define CITP_CAEX_FIXTURE_SELECT       0x00020300
@@ -114,6 +124,7 @@
 #define CITP_SDMX_CAPABILITY_CHLS   1
 #define CITP_SDMX_CAPABILITY_SXSR   2
 #define CITP_SDMX_CAPABILITY_SXUS   3
+#define CITP_SDMX_CAPABILITY_WIDE   4
 #define CITP_SDMX_CAPABILITY_ARTNET 101
 #define CITP_SDMX_CAPABILITY_E131   102
 #define CITP_SDMX_CAPABILITY_NET2   103
@@ -247,6 +258,7 @@ static int hf_citp_sdmx_capability_count;
 static int hf_citp_sdmx_capabilities;
 static int hf_citp_sdmx_capability;
 static int hf_citp_sdmx_universe_index;
+static int hf_citp_sdmx_universe_index_wide;
 static int hf_citp_sdmx_universe_name;
 static int hf_citp_sdmx_encryption_identifier;
 static int hf_citp_sdmx_blind;
@@ -317,6 +329,7 @@ static int hf_citp_caex_cue_option_choices;
 static int hf_citp_caex_cue_option_help;
 static int hf_citp_caex_cue_clear_availability;
 
+static int hf_citp_caex_show_sync_version;
 static int hf_citp_caex_show_name;
 static int hf_citp_caex_show_transformation_space;
 static int hf_citp_caex_show_fixture_list_type;
@@ -342,11 +355,15 @@ static int hf_citp_caex_show_fixture_identifier_altabase_mode_id;
 static int hf_citp_caex_show_fixture_identifier_capture_instance_id;
 static int hf_citp_caex_show_fixture_patched;
 static int hf_citp_caex_show_fixture_universe;
+static int hf_citp_caex_show_fixture_universe_wide;
 static int hf_citp_caex_show_fixture_universe_channel;
 static int hf_citp_caex_show_fixture_unit;
 static int hf_citp_caex_show_fixture_channel;
 static int hf_citp_caex_show_fixture_circuit;
+static int hf_citp_caex_show_fixture_purpose;
+static int hf_citp_caex_show_fixture_focus;
 static int hf_citp_caex_show_fixture_note;
+static int hf_citp_caex_show_fixture_external_id;
 static int hf_citp_caex_show_fixture_position;
 static int hf_citp_caex_show_fixture_position_x;
 static int hf_citp_caex_show_fixture_position_y;
@@ -364,6 +381,16 @@ static int hf_citp_caex_show_fixture_changed_fields_channel;
 static int hf_citp_caex_show_fixture_changed_fields_circuit;
 static int hf_citp_caex_show_fixture_changed_fields_note;
 static int hf_citp_caex_show_fixture_changed_fields_position;
+static int hf_citp_caex_show_fixture_changed_fields_v2;
+static int hf_citp_caex_show_fixture_changed_fields_v2_patch;
+static int hf_citp_caex_show_fixture_changed_fields_v2_unit;
+static int hf_citp_caex_show_fixture_changed_fields_v2_channel;
+static int hf_citp_caex_show_fixture_changed_fields_v2_circuit;
+static int hf_citp_caex_show_fixture_changed_fields_v2_note;
+static int hf_citp_caex_show_fixture_changed_fields_v2_position;
+static int hf_citp_caex_show_fixture_changed_fields_v2_purpose;
+static int hf_citp_caex_show_fixture_changed_fields_v2_focus;
+static int hf_citp_caex_show_fixture_changed_fields_v2_external_id;
 
 static int hf_citp_caex_laser_source_key;
 static int hf_citp_caex_laser_feed_count;
@@ -530,13 +557,17 @@ static const value_string citp_pinf_content_type_names[] = {
     { 0,              NULL },
 };
 static const value_string citp_sdmx_content_type_names[] = {
-    { CITP_SDMX_CAPA, "Capa : Capabilities" },
-    { CITP_SDMX_UNAM, "UNam : Universe Name" },
-    { CITP_SDMX_ENID, "EnId : Encryption Identifier" },
-    { CITP_SDMX_CHBK, "ChBk : Channel Block" },
-    { CITP_SDMX_CHLS, "ChLs : Channel List" },
-    { CITP_SDMX_SXSR, "SXSr : Set External Source" },
-    { CITP_SDMX_SXUS, "SXUS : Set External Universe Source" },
+    { CITP_SDMX_CAPA,  "Capa : Capabilities" },
+    { CITP_SDMX_UNAM,  "UNam : Universe Name" },
+    { CITP_SDMX_UNAMW, "UNamW: Universe Name (16-bit)" },
+    { CITP_SDMX_ENID,  "EnId : Encryption Identifier" },
+    { CITP_SDMX_CHBK,  "ChBk : Channel Block" },
+    { CITP_SDMX_CHBKW, "ChBkW: Channel Block (16-bit)" },
+    { CITP_SDMX_CHLS,  "ChLs : Channel List" },
+    { CITP_SDMX_CHLSW, "ChLsW: Channel List (16-bit)" },
+    { CITP_SDMX_SXSR,  "SXSr : Set External Source" },
+    { CITP_SDMX_SXUS,  "SXUS : Set External Universe Source" },
+    { CITP_SDMX_SXUSW, "SXUSW: Set External Universe Source (16-bit)" },
     { 0,              NULL },
 };
 static const value_string citp_fptc_content_type_names[] = {
@@ -618,6 +649,7 @@ static const value_string citp_sdmx_capability_names[] = {
     { CITP_SDMX_CAPABILITY_CHLS,   "ChLs channel list" },
     { CITP_SDMX_CAPABILITY_SXSR,   "SXSr external source" },
     { CITP_SDMX_CAPABILITY_SXUS,   "SXUS per-universe external sources" },
+    { CITP_SDMX_CAPABILITY_WIDE,   "16-bit 'wide' (universe index) messages" },
     { CITP_SDMX_CAPABILITY_ARTNET, "Art-Net external sources" },
     { CITP_SDMX_CAPABILITY_E131,   "BSR E1.31 external sources" },
     { CITP_SDMX_CAPABILITY_NET2,   "ETC Net2 external sources" },
@@ -635,12 +667,16 @@ static const value_string citp_caex_content_code_names[] = {
     { CITP_CAEX_CUE_RECORD,           "Record Cue" },
     { CITP_CAEX_CUE_CLEAR_CAPA,       "Set Recorder Clearing Capabilities" },
     { CITP_CAEX_CUE_CLEAR,            "Clear Recorder" },
+    { CITP_CAEX_SHOW_SYNC_VERSION,    "Show Sync Version" },
     { CITP_CAEX_SHOW_ENTER,           "Enter Show" },
+    { CITP_CAEX_SHOW_ENTER_V2,        "Enter Show V2" },
     { CITP_CAEX_SHOW_LEAVE,           "Leave Show" },
     { CITP_CAEX_SET_TRANS_SPACE,      "Set Fixture Transformation Space" },
     { CITP_CAEX_FIXTURE_LIST_REQ,     "Fixture List Request" },
     { CITP_CAEX_FIXTURE_LIST,         "Fixture List" },
+    { CITP_CAEX_FIXTURE_LIST_V2,      "Fixture List V2" },
     { CITP_CAEX_FIXTURE_MODIFY,       "Fixture Modify" },
+    { CITP_CAEX_FIXTURE_MODIFY_V2,    "Fixture Modify V2" },
     { CITP_CAEX_FIXTURE_REMOVE,       "Fixture Remove" },
     { CITP_CAEX_FIXTURE_ID,           "Fixture Identify" },
     { CITP_CAEX_FIXTURE_SELECT,       "Fixture Selection" },
@@ -735,6 +771,19 @@ static int * const citp_caex_show_fixture_changed_fields[] = {
     NULL
 };
 
+static int * const citp_caex_show_fixture_changed_fields_v2[] = {
+    &hf_citp_caex_show_fixture_changed_fields_v2_patch,
+    &hf_citp_caex_show_fixture_changed_fields_v2_unit,
+    &hf_citp_caex_show_fixture_changed_fields_v2_channel,
+    &hf_citp_caex_show_fixture_changed_fields_v2_circuit,
+    &hf_citp_caex_show_fixture_changed_fields_v2_note,
+    &hf_citp_caex_show_fixture_changed_fields_v2_position,
+    &hf_citp_caex_show_fixture_changed_fields_v2_purpose,
+    &hf_citp_caex_show_fixture_changed_fields_v2_focus,
+    &hf_citp_caex_show_fixture_changed_fields_v2_external_id,
+    NULL
+};
+
 static int * const citp_msex_supported_library_types[] = {
     &hf_citp_msex_supported_library_types_media,
     &hf_citp_msex_supported_library_types_effects,
@@ -795,12 +844,8 @@ static void set_conversation_encryption(packet_info *pinfo, char* enid) {
         info->id = enid;
         conversation_add_proto_data(conv, proto_citp_sdmx, (void*)info);
     } else {
-        if (strcmp(info->id, enid) == 0) {
-            /* free unused enid */
-            wmem_free(wmem_file_scope(), enid);
-        } else {
-            /* free old enid, is copied wherever it's used in proto tree, so no use-after-free */
-            wmem_free(wmem_file_scope(), info->id);
+        /* The old enid is kept, earlier frames refer to it */
+        if (strcmp(info->id, enid) != 0) {
             info->id = enid;
         }
     }
@@ -895,29 +940,43 @@ dissect_sdmx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
             col_add_fstr(pinfo->cinfo, COL_INFO, "Capa, Count %d", count);
             break;
         case CITP_SDMX_UNAM:
-            proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_universe_index, tvb, offset, 1, ENC_LITTLE_ENDIAN, &univ_num);
-            offset += 1;
+        case CITP_SDMX_UNAMW:
+            if (content_type == CITP_SDMX_UNAM) {
+                proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_universe_index, tvb, offset, 1, ENC_LITTLE_ENDIAN, &univ_num);
+                offset += 1;
+            } else {
+                proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_universe_index_wide, tvb, offset, 2, ENC_LITTLE_ENDIAN, &univ_num);
+                offset += 2;
+            }
             proto_tree_add_item_ret_string_and_length(sdmx_tree, hf_citp_sdmx_universe_name, tvb, offset, -1, ENC_UTF_8, pinfo->pool, &name, &str_len);
             offset += str_len;
             col_add_fstr(pinfo->cinfo, COL_INFO, "UNam, Universe %d: %s", univ_num, name);
             break;
         case CITP_SDMX_ENID: {
             str_len = tvb_strsize(tvb, offset);
-            char* enid = (char*)tvb_get_string_enc(wmem_file_scope(), tvb, offset, str_len, ENC_UTF_8);
-            proto_tree_add_item(sdmx_tree, hf_citp_sdmx_encryption_identifier, tvb, offset, str_len, ENC_UTF_8);
-            offset += str_len;
+            const uint8_t* enid;
+            proto_tree_add_item_ret_string(sdmx_tree, hf_citp_sdmx_encryption_identifier, tvb, offset, str_len, ENC_UTF_8, pinfo->pool, &enid);
             col_add_fstr(pinfo->cinfo, COL_INFO, "EnId, %s", enid);
 
             /* add encryption info to conversation */
-            set_conversation_encryption(pinfo, enid);
+            if (!PINFO_FD_VISITED(pinfo)) {
+                set_conversation_encryption(pinfo, (char*)tvb_get_string_enc(wmem_file_scope(), tvb, offset, str_len, ENC_UTF_8));
+            }
+            offset += str_len;
             break;
         }
-        case CITP_SDMX_CHBK: {
+        case CITP_SDMX_CHBK:
+        case CITP_SDMX_CHBKW: {
             bool blind;
             proto_tree_add_item_ret_boolean(sdmx_tree, hf_citp_sdmx_blind, tvb, offset, 1, ENC_LITTLE_ENDIAN, &blind);
             offset += 1;
-            proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_universe_index, tvb, offset, 1, ENC_LITTLE_ENDIAN, &univ_num);
-            offset += 1;
+            if (content_type == CITP_SDMX_CHBK) {
+                proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_universe_index, tvb, offset, 1, ENC_LITTLE_ENDIAN, &univ_num);
+                offset += 1;
+            } else {
+                proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_universe_index_wide, tvb, offset, 2, ENC_LITTLE_ENDIAN, &univ_num);
+                offset += 2;
+            }
             uint32_t start_chan;
             proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_first_channel, tvb, offset, 2, ENC_LITTLE_ENDIAN, &start_chan);
             offset += 2;
@@ -926,7 +985,16 @@ dissect_sdmx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
 
             col_add_fstr(pinfo->cinfo, COL_INFO, "ChBk, %s, Universe %d, Channels %d-%d", tfs_get_string(blind, &tfs_live_blind), univ_num, start_chan+1, start_chan+count);
 
-            char* enc_info = get_conversation_encryption(pinfo);
+            /* Use the encryption that applied when the frame was first seen */
+            char* enc_info;
+            if (!PINFO_FD_VISITED(pinfo)) {
+                enc_info = get_conversation_encryption(pinfo);
+                if (enc_info != NULL) {
+                    p_add_proto_data(wmem_file_scope(), pinfo, proto_citp_sdmx, 0, enc_info);
+                }
+            } else {
+                enc_info = (char*)p_get_proto_data(wmem_file_scope(), pinfo, proto_citp_sdmx, 0);
+            }
             if (enc_info != NULL) {
                 proto_tree_add_item(sdmx_tree, hf_citp_sdmx_encrypted_channel_data, tvb, offset, count, ENC_NA);
                 proto_item_set_generated(
@@ -953,6 +1021,7 @@ dissect_sdmx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
             break;
         }
         case CITP_SDMX_CHLS:
+        case CITP_SDMX_CHLSW:
             proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_channel_count, tvb, offset, 2, ENC_LITTLE_ENDIAN, &count);
             offset += 2;
             col_add_fstr(pinfo->cinfo, COL_INFO, "ChLs, %d channels", count);
@@ -961,8 +1030,13 @@ dissect_sdmx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
                 proto_item* chan = proto_tree_add_item(sdmx_tree, hf_citp_sdmx_channel_level_block, tvb, offset, 4, ENC_NA);
                 proto_tree* chan_tree = proto_item_add_subtree(chan, hf_citp_sdmx_channel_level_block);
 
-                proto_tree_add_item(chan_tree, hf_citp_sdmx_universe_index, tvb, offset, 1, ENC_LITTLE_ENDIAN);
-                offset+=1;
+                if (content_type == CITP_SDMX_CHLS) {
+                    proto_tree_add_item(chan_tree, hf_citp_sdmx_universe_index, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+                    offset+=1;
+                } else {
+                    proto_tree_add_item(chan_tree, hf_citp_sdmx_universe_index_wide, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+                    offset+=2;
+                }
                 uint32_t chan_idx, chan_level;
                 proto_tree_add_item_ret_uint(chan_tree, hf_citp_sdmx_channel, tvb, offset, 2, ENC_LITTLE_ENDIAN, &chan_idx);
                 offset+=2;
@@ -977,8 +1051,14 @@ dissect_sdmx(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
             col_add_fstr(pinfo->cinfo, COL_INFO, "SXSr, %s", name);
             break;
         case CITP_SDMX_SXUS:
-            proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_universe_index, tvb, offset, 1, ENC_LITTLE_ENDIAN, &univ_num);
-            offset += 1;
+        case CITP_SDMX_SXUSW:
+            if (content_type == CITP_SDMX_SXUS) {
+                proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_universe_index, tvb, offset, 1, ENC_LITTLE_ENDIAN, &univ_num);
+                offset += 1;
+            } else {
+                proto_tree_add_item_ret_uint(sdmx_tree, hf_citp_sdmx_universe_index_wide, tvb, offset, 2, ENC_LITTLE_ENDIAN, &univ_num);
+                offset += 2;
+            }
             proto_tree_add_item_ret_string_and_length(sdmx_tree, hf_citp_sdmx_connection_string, tvb, offset, -1, ENC_UTF_8, pinfo->pool, &name, &str_len);
             offset += str_len;
             col_add_fstr(pinfo->cinfo, COL_INFO, "SXUS, Universe %d, %s", univ_num, name);
@@ -1271,7 +1351,16 @@ dissect_caex_fixture(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *
             }
         }
     }
-    else if (content_code == CITP_CAEX_FIXTURE_LIST || content_code == CITP_CAEX_FIXTURE_MODIFY) {
+    else if (content_code == CITP_CAEX_FIXTURE_LIST || content_code == CITP_CAEX_FIXTURE_MODIFY
+        || content_code == CITP_CAEX_FIXTURE_LIST_V2 || content_code == CITP_CAEX_FIXTURE_MODIFY_V2
+    ) {
+        unsigned int string_encoding = ENC_UCS_2|ENC_LITTLE_ENDIAN;
+        bool v2 = false;
+        if (content_code == CITP_CAEX_FIXTURE_LIST_V2 || content_code == CITP_CAEX_FIXTURE_MODIFY_V2) {
+            string_encoding = ENC_UTF_8;
+            v2 = true;
+        }
+
         for (unsigned int i = 0; i < fixture_count; i++) {
             proto_item *fixture = proto_tree_add_item(list_tree, hf_citp_caex_show_fixture, tvb, offset, -1, ENC_NA);
             proto_tree *fixt_tree = proto_item_add_subtree(fixture, ett_citp_caex_show_fixture);
@@ -1280,15 +1369,15 @@ dissect_caex_fixture(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *
             offset+=4;
             proto_item_append_text(fixture, ", ID: %u", fixture_id);
 
-            uint32_t changed_fields = 0xFF;
+            uint32_t changed_fields = 0xFFFF;
             if (content_code == CITP_CAEX_FIXTURE_LIST) {
-                proto_tree_add_item_ret_string_and_length(fixt_tree, hf_citp_caex_show_fixture_manufacturer_name, tvb, offset, -1, ENC_UCS_2|ENC_LITTLE_ENDIAN, pinfo->pool, &str, &str_len);
+                proto_tree_add_item_ret_string_and_length(fixt_tree, hf_citp_caex_show_fixture_manufacturer_name, tvb, offset, -1, string_encoding, pinfo->pool, &str, &str_len);
                 proto_item_append_text(fixture, ", %s", str);
                 offset+=str_len;
-                proto_tree_add_item_ret_string_and_length(fixt_tree, hf_citp_caex_show_fixture_model_name, tvb, offset, -1, ENC_UCS_2|ENC_LITTLE_ENDIAN, pinfo->pool, &str, &str_len);
+                proto_tree_add_item_ret_string_and_length(fixt_tree, hf_citp_caex_show_fixture_model_name, tvb, offset, -1, string_encoding, pinfo->pool, &str, &str_len);
                 proto_item_append_text(fixture, ", %s", str);
                 offset+=str_len;
-                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_mode_name, tvb, offset, -1, ENC_UCS_2|ENC_LITTLE_ENDIAN, &str_len);
+                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_mode_name, tvb, offset, -1, string_encoding, &str_len);
                 offset+=str_len;
                 proto_tree_add_item(fixt_tree, hf_citp_caex_show_fixture_channel_count, tvb, offset, 2, ENC_LITTLE_ENDIAN);
                 offset+=2;
@@ -1338,23 +1427,34 @@ dissect_caex_fixture(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *
                 }
             }
             else if (content_code == CITP_CAEX_FIXTURE_MODIFY) {
-                changed_fields = tvb_get_uint8(tvb, offset);
-                proto_tree_add_bitmask(fixt_tree, tvb, offset, hf_citp_caex_show_fixture_changed_fields, ett_citp_caex_show_fixture_changed_fields, citp_caex_show_fixture_changed_fields, ENC_LITTLE_ENDIAN);
-                offset+=1;
+                if (!v2) {
+                    changed_fields = tvb_get_uint8(tvb, offset);
+                    proto_tree_add_bitmask(fixt_tree, tvb, offset, hf_citp_caex_show_fixture_changed_fields, ett_citp_caex_show_fixture_changed_fields, citp_caex_show_fixture_changed_fields, ENC_LITTLE_ENDIAN);
+                    offset+=1;
+                } else {
+                    changed_fields = tvb_get_uint16(tvb, offset, ENC_LITTLE_ENDIAN);
+                    proto_tree_add_bitmask(fixt_tree, tvb, offset, hf_citp_caex_show_fixture_changed_fields_v2, ett_citp_caex_show_fixture_changed_fields, citp_caex_show_fixture_changed_fields_v2, ENC_LITTLE_ENDIAN);
+                    offset+=2;
+                }
             }
 
             if (changed_fields & 0x01) {
                 proto_tree_add_item(fixt_tree, hf_citp_caex_show_fixture_patched, tvb, offset, 1, ENC_NA);
                 offset+=1;
                 uint32_t univ, chan;
-                proto_tree_add_item_ret_uint(fixt_tree, hf_citp_caex_show_fixture_universe, tvb, offset, 1, ENC_LITTLE_ENDIAN, &univ);
-                offset+=1;
+                if (!v2) {
+                    proto_tree_add_item_ret_uint(fixt_tree, hf_citp_caex_show_fixture_universe, tvb, offset, 1, ENC_LITTLE_ENDIAN, &univ);
+                    offset+=1;
+                } else {
+                    proto_tree_add_item_ret_uint(fixt_tree, hf_citp_caex_show_fixture_universe_wide, tvb, offset, 2, ENC_LITTLE_ENDIAN, &univ);
+                    offset+=2;
+                }
                 proto_tree_add_item_ret_uint(fixt_tree, hf_citp_caex_show_fixture_universe_channel, tvb, offset, 2, ENC_LITTLE_ENDIAN, &chan);
                 offset+=2;
                 proto_item_append_text(fixture, ", Universe: %u, Channel: %u", univ, chan);
             }
             if (changed_fields & 0x02) {
-                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_unit, tvb, offset, -1, ENC_UCS_2|ENC_LITTLE_ENDIAN, &str_len);
+                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_unit, tvb, offset, -1, string_encoding, &str_len);
                 offset+=str_len;
             }
             if (changed_fields & 0x04) {
@@ -1362,11 +1462,23 @@ dissect_caex_fixture(tvbuff_t *tvb, int offset, packet_info *pinfo, proto_tree *
                 offset+=2;
             }
             if (changed_fields & 0x08) {
-                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_circuit, tvb, offset, -1, ENC_UCS_2|ENC_LITTLE_ENDIAN, &str_len);
+                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_circuit, tvb, offset, -1, string_encoding, &str_len);
+                offset+=str_len;
+            }
+            if (v2 && (changed_fields & 0x40)) {
+                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_purpose, tvb, offset, -1, string_encoding, &str_len);
+                offset+=str_len;
+            }
+            if (v2 && (changed_fields & 0x80)) {
+                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_focus, tvb, offset, -1, string_encoding, &str_len);
                 offset+=str_len;
             }
             if (changed_fields & 0x10) {
-                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_note, tvb, offset, -1, ENC_UCS_2|ENC_LITTLE_ENDIAN, &str_len);
+                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_note, tvb, offset, -1, string_encoding, &str_len);
+                offset+=str_len;
+            }
+            if (v2 && (changed_fields & 0x100)) {
+                proto_tree_add_item_ret_length(fixt_tree, hf_citp_caex_show_fixture_external_id, tvb, offset, -1, string_encoding, &str_len);
                 offset+=str_len;
             }
             if (changed_fields & 0x20) {
@@ -1506,8 +1618,16 @@ dissect_caex(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
             break;
         case CITP_CAEX_CUE_CLEAR: break;
 
+        case CITP_CAEX_SHOW_SYNC_VERSION:
+            proto_tree_add_item(caex_tree, hf_citp_caex_show_sync_version, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+            offset += 1;
+            break;
         case CITP_CAEX_SHOW_ENTER:
-            proto_tree_add_item_ret_string_and_length(caex_tree, hf_citp_caex_show_name, tvb, offset, -1, ENC_UCS_2|ENC_LITTLE_ENDIAN, pinfo->pool, &str, &str_len);
+        case CITP_CAEX_SHOW_ENTER_V2:
+            if (content_code == CITP_CAEX_SHOW_ENTER)
+                proto_tree_add_item_ret_string_and_length(caex_tree, hf_citp_caex_show_name, tvb, offset, -1, ENC_UCS_2|ENC_LITTLE_ENDIAN, pinfo->pool, &str, &str_len);
+            else
+                proto_tree_add_item_ret_string_and_length(caex_tree, hf_citp_caex_show_name, tvb, offset, -1, ENC_UTF_8, pinfo->pool, &str, &str_len);
             offset+=str_len;
             col_append_fstr(pinfo->cinfo, COL_INFO, ", %s", str);
             break;
@@ -1518,8 +1638,10 @@ dissect_caex(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data _U_
             break;
         case CITP_CAEX_FIXTURE_LIST_REQ: break;
         case CITP_CAEX_FIXTURE_LIST:
+        case CITP_CAEX_FIXTURE_LIST_V2:
         case CITP_CAEX_FIXTURE_ID:
         case CITP_CAEX_FIXTURE_MODIFY:
+        case CITP_CAEX_FIXTURE_MODIFY_V2:
         case CITP_CAEX_FIXTURE_REMOVE:
         case CITP_CAEX_FIXTURE_SELECT:
         case CITP_CAEX_FIXTURE_STATUS:
@@ -1717,7 +1839,7 @@ dissect_msex_sinf(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, int o
 
     proto_tree_add_item_ret_uint(tree, hf_citp_msex_layer_count, tvb, offset, 1, ENC_LITTLE_ENDIAN, &count);
     offset+=1;
-    proto_item* layer = proto_tree_add_item(tree, hf_citp_msex_layers, tvb, offset, -1, ENC_NA);
+    proto_item* layer = proto_tree_add_item(tree, hf_citp_msex_layers, tvb, offset, 0, ENC_NA);
     proto_tree* layer_tree = proto_item_add_subtree(layer, ett_citp_msex_layers);
     int s_offset = offset;
     for (unsigned int i = 0; i < count; i++) {
@@ -1740,7 +1862,7 @@ dissect_msex_lsta(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offse
     proto_tree_add_item_ret_uint(tree, hf_citp_msex_layer_count, tvb, offset, 1, ENC_LITTLE_ENDIAN, &count);
     offset+=1;
 
-    proto_item *layers = proto_tree_add_item(tree, hf_citp_msex_layers, tvb, offset, -1, ENC_NA);
+    proto_item *layers = proto_tree_add_item(tree, hf_citp_msex_layers, tvb, offset, 0, ENC_NA);
     proto_tree *layers_tree = proto_item_add_subtree(layers, ett_citp_msex_layers);
     int list_offset = offset;
     for (unsigned int i = 0; i < count; i++) {
@@ -2095,7 +2217,7 @@ dissect_msex_vsrc(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offse
     offset+=2;
     col_append_fstr(pinfo->cinfo, COL_INFO, ", %d sources", count);
 
-    proto_item *sources = proto_tree_add_item(tree, hf_citp_msex_sources, tvb, offset, -1, ENC_NA);
+    proto_item *sources = proto_tree_add_item(tree, hf_citp_msex_sources, tvb, offset, 0, ENC_NA);
     proto_tree *sources_tree = proto_item_add_subtree(sources, ett_citp_msex_sources);
     int list_offset = offset;
     for (unsigned int i = 0; i < count; i++) {
@@ -2546,6 +2668,12 @@ proto_register_citp(void) {
             NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_citp_sdmx_universe_index_wide,
+            { "Universe Index (16-bit)", "citp.sdmx.universe_index",
+            FT_UINT16, BASE_DEC,
+            NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_citp_sdmx_universe_name,
             { "Universe Name", "citp.sdmx.universe_name",
             FT_STRING, BASE_NONE,
@@ -2933,6 +3061,12 @@ proto_register_citp(void) {
             NULL, HFILL }
         },
 
+        { &hf_citp_caex_show_sync_version,
+            { "Show Sync Version", "citp.caex.show.sync_version",
+            FT_UINT16, BASE_DEC,
+            NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_citp_caex_show_name,
             { "Name", "citp.caex.show.name",
             FT_STRINGZ, BASE_NONE,
@@ -3083,6 +3217,12 @@ proto_register_citp(void) {
             NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_citp_caex_show_fixture_universe_wide,
+            { "Universe (16-bit)", "citp.caex.show.fixture.universe",
+            FT_UINT16, BASE_DEC,
+            NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_citp_caex_show_fixture_universe_channel,
             { "Universe Channel", "citp.caex.show.fixture.universe_channel",
             FT_UINT16, BASE_DEC,
@@ -3107,8 +3247,26 @@ proto_register_citp(void) {
             NULL, 0x0,
             NULL, HFILL }
         },
+        { &hf_citp_caex_show_fixture_purpose,
+            { "Purpose", "citp.caex.show.fixture.purpose",
+            FT_STRINGZ, BASE_NONE,
+            NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_focus,
+            { "Focus", "citp.caex.show.fixture.focus",
+            FT_STRINGZ, BASE_NONE,
+            NULL, 0x0,
+            NULL, HFILL }
+        },
         { &hf_citp_caex_show_fixture_note,
             { "Note", "citp.caex.show.fixture.note",
+            FT_STRINGZ, BASE_NONE,
+            NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_external_id,
+            { "External Id", "citp.caex.show.fixture.external_id",
             FT_STRINGZ, BASE_NONE,
             NULL, 0x0,
             NULL, HFILL }
@@ -3213,6 +3371,66 @@ proto_register_citp(void) {
             { "Position", "citp.caex.show.fixture.changed_fields.position",
             FT_BOOLEAN, 8,
             NULL, 0x20,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_changed_fields_v2,
+            { "Changed Fields V2", "citp.caex.show.fixture.changed_fields",
+            FT_UINT16, BASE_HEX,
+            NULL, 0x0,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_changed_fields_v2_patch,
+            { "Patch", "citp.caex.show.fixture.changed_fields.patch",
+            FT_BOOLEAN, 16,
+            NULL, 0x0001,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_changed_fields_v2_unit,
+            { "Unit", "citp.caex.show.fixture.changed_fields.unit",
+            FT_BOOLEAN, 16,
+            NULL, 0x0002,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_changed_fields_v2_channel,
+            { "Channel", "citp.caex.show.fixture.changed_fields.channel",
+            FT_BOOLEAN, 16,
+            NULL, 0x0004,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_changed_fields_v2_circuit,
+            { "Circuit", "citp.caex.show.fixture.changed_fields.circuit",
+            FT_BOOLEAN, 16,
+            NULL, 0x0008,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_changed_fields_v2_note,
+            { "Note", "citp.caex.show.fixture.changed_fields.note",
+            FT_BOOLEAN, 16,
+            NULL, 0x0010,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_changed_fields_v2_position,
+            { "Position", "citp.caex.show.fixture.changed_fields.position",
+            FT_BOOLEAN, 16,
+            NULL, 0x0020,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_changed_fields_v2_purpose,
+            { "Purpose", "citp.caex.show.fixture.changed_fields.purpose",
+            FT_BOOLEAN, 16,
+            NULL, 0x0040,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_changed_fields_v2_focus,
+            { "Focus", "citp.caex.show.fixture.changed_fields.focus",
+            FT_BOOLEAN, 16,
+            NULL, 0x0080,
+            NULL, HFILL }
+        },
+        { &hf_citp_caex_show_fixture_changed_fields_v2_external_id,
+            { "External Id", "citp.caex.show.fixture.changed_fields.external_id",
+            FT_BOOLEAN, 16,
+            NULL, 0x0100,
             NULL, HFILL }
         },
 
@@ -3468,7 +3686,7 @@ proto_register_citp(void) {
         },
         { &hf_citp_msex_layers,
             { "Layers", "citp.msex.layers",
-            FT_UINT8, BASE_DEC,
+            FT_NONE, BASE_NONE,
             NULL, 0x0,
             NULL, HFILL }
         },

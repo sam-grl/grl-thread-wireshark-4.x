@@ -40,6 +40,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/filter_expression_toolbar.h
 	widgets/find_line_edit.h
 	widgets/follow_stream_text.h
+	widgets/font_selection_widget.h
 	widgets/hex_data_source_view.h
 	widgets/interface_toolbar_lineedit.h
 	widgets/json_data_source_view.h
@@ -67,10 +68,13 @@ set(WIRESHARK_WIDGET_HEADERS
 	widgets/rowmove_tree_view.h
 	widgets/rtp_audio_graph.h
 	widgets/splash_overlay.h
-	widgets/stock_icon_tool_button.h
 	widgets/syntax_line_edit.h
 	widgets/tabnav_tree_view.h
+	widgets/theme_code_view.h
+	widgets/theme_color_editor.h
+	widgets/theme_preview_pick.h
 	widgets/theme_preview_widget.h
+	widgets/theme_welcome_preview.h
 	widgets/traffic_tab.h
 	widgets/traffic_tree.h
 	widgets/traffic_types_list.h
@@ -95,11 +99,14 @@ set(WIRESHARK_MANAGER_HEADERS
 set(WIRESHARK_UTILS_HEADERS
 	utils/byte_view_text_cells.h
 	utils/color_utils.h
+	utils/coloring_rule_utils.h
 	utils/data_printer.h
 	utils/field_information.h
 	utils/font_manager.h
 	utils/frame_information.h
 	utils/idata_printable.h
+	utils/jsonc_document.h
+	utils/plot_theme.h
 	utils/profile_switcher.h
 	utils/proto_node.h
 	utils/qt_ui_utils.h
@@ -109,20 +116,26 @@ set(WIRESHARK_UTILS_HEADERS
 	utils/rtp_audio_silence_generator.h
 	utils/software_update.h
 	utils/software_update_backend.h
-	utils/stock_icon.h
-	utils/tango_colors.h
+	utils/stat_table_exporter.h
 	utils/theme_manager.h
+	utils/zoom_scaling.h
 	utils/theme_styler.h
 	utils/themes/color_math.h
 	utils/themes/legacy_color_prefs_migration.h
+	utils/themes/native_title_bar.h
 	utils/themes/system_theme_detector.h
+	utils/themes/theme_format.h
 	utils/themes/theme_palette_builder.h
 	utils/themes/theme_parser.h
 	utils/themes/theme_stylesheet_loader.h
 	utils/themes/theme_token_handler.h
+	utils/themes/theme_writer.h
 	utils/themes/themed_icon.h
 	utils/themes/token_palette.h
 	utils/themes/contrast_adapt_icon.h
+	utils/themes/themed_shape_icon.h
+	utils/themes/icon_engine_utils.h
+	utils/unique_name.h
 	utils/variant_pointer.h
 	utils/wireshark_mime_data.h
 	utils/wireshark_zip_helper.h
@@ -152,6 +165,7 @@ set(WIRESHARK_MODEL_HEADERS
 	models/decode_as_delegate.h
 	models/decode_as_model.h
 	models/dissector_tables_model.h
+	models/distribution_model.h
 	models/enabled_protocols_model.h
 	models/expert_info_model.h
 	models/expert_info_proxy_model.h
@@ -243,12 +257,15 @@ set(WIRESHARK_QT_HEADERS
 	follow_stream_action.h
 	follow_stream_dialog.h
 	font_color_preferences_frame.h
+	font_preferences_frame.h
+	font_selection_dialog.h
 	funnel_statistics.h
 	funnel_string_dialog.h
 	funnel_text_dialog.h
 	geometry_state_dialog.h
 	glib_mainloop_on_qeventloop.h
 	graph.h
+	graph_dialog.h
 	gsm_map_summary_dialog.h
 	iax2_analysis_dialog.h
 	imsi_list_dialog.h
@@ -275,6 +292,7 @@ set(WIRESHARK_QT_HEADERS
 	manuf_dialog.h
 	module_preferences_scroll_area.h
 	mtp3_summary_dialog.h
+	mka_ca_dialog.h
 	multicast_statistics_dialog.h
 	packet_comment_dialog.h
 	packet_diagram.h
@@ -325,6 +343,7 @@ set(WIRESHARK_QT_HEADERS
 	tcp_dedup_dialog.h
 	tcp_stream_dialog.h
 	theme_debug_dialog.h
+	theme_designer_dialog.h
 	time_shift_dialog.h
 	traffic_table_dialog.h
 	uat_dialog.h
@@ -385,6 +404,7 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/filter_expression_toolbar.cpp
 	widgets/find_line_edit.cpp
 	widgets/follow_stream_text.cpp
+	widgets/font_selection_widget.cpp
 	widgets/hex_data_source_view.cpp
 	widgets/interface_toolbar_lineedit.cpp
 	widgets/json_data_source_view.cpp
@@ -411,10 +431,13 @@ set(WIRESHARK_WIDGET_SRCS
 	widgets/rowmove_tree_view.cpp
 	widgets/rtp_audio_graph.cpp
 	widgets/splash_overlay.cpp
-	widgets/stock_icon_tool_button.cpp
 	widgets/syntax_line_edit.cpp
 	widgets/tabnav_tree_view.cpp
+	widgets/theme_code_view.cpp
+	widgets/theme_color_editor.cpp
+	widgets/theme_preview_pick.cpp
 	widgets/theme_preview_widget.cpp
+	widgets/theme_welcome_preview.cpp
 	widgets/traffic_tab.cpp
 	widgets/traffic_tree.cpp
 	widgets/traffic_types_list.cpp
@@ -437,20 +460,32 @@ set(WIRESHARK_MANAGER_SRCS
 )
 
 if(APPLE)
-	set(WIRESHARK_THEMES_PLATFORM_SRC utils/themes/system_theme_detector_mac.mm)
+	set(WIRESHARK_THEMES_PLATFORM_SRC
+		utils/themes/system_theme_detector_mac.mm
+		utils/themes/native_title_bar_mac.mm
+	)
 elseif(WIN32)
-	set(WIRESHARK_THEMES_PLATFORM_SRC utils/themes/system_theme_detector_win.cpp)
+	set(WIRESHARK_THEMES_PLATFORM_SRC
+		utils/themes/system_theme_detector_win.cpp
+		utils/themes/native_title_bar_win.cpp
+	)
 elseif(UNIX)
-	set(WIRESHARK_THEMES_PLATFORM_SRC utils/themes/system_theme_detector_unix.cpp)
+	set(WIRESHARK_THEMES_PLATFORM_SRC
+		utils/themes/system_theme_detector_unix.cpp
+		utils/themes/native_title_bar_stub.cpp
+	)
 else()
-	set(WIRESHARK_THEMES_PLATFORM_SRC utils/themes/system_theme_detector_stub.cpp)
+	set(WIRESHARK_THEMES_PLATFORM_SRC
+		utils/themes/system_theme_detector_stub.cpp
+		utils/themes/native_title_bar_stub.cpp
+	)
 endif()
 
 if(HAVE_SOFTWARE_UPDATE AND WIN32)
 	set(WIRESHARK_SOFTWARE_UPDATE_PLATFORM_SRC utils/software_update_backend_win.cpp)
 elseif(HAVE_SOFTWARE_UPDATE AND APPLE)
 	set(WIRESHARK_SOFTWARE_UPDATE_PLATFORM_SRC utils/software_update_backend_mac.cpp)
-elseif(PACKAGEKIT_FOUND)
+elseif(HAVE_SOFTWARE_UPDATE)
 	set(WIRESHARK_SOFTWARE_UPDATE_PLATFORM_SRC utils/software_update_backend_linux.cpp)
 else()
 	set(WIRESHARK_SOFTWARE_UPDATE_PLATFORM_SRC utils/software_update_backend_stub.cpp)
@@ -459,10 +494,13 @@ endif()
 set(WIRESHARK_UTILS_SRCS
 	utils/byte_view_text_cells.cpp
 	utils/color_utils.cpp
+	utils/coloring_rule_utils.cpp
 	utils/data_printer.cpp
 	utils/field_information.cpp
 	utils/font_manager.cpp
 	utils/frame_information.cpp
+	utils/jsonc_document.cpp
+	utils/plot_theme.cpp
 	utils/profile_switcher.cpp
 	utils/proto_node.cpp
 	utils/qt_ui_utils.cpp
@@ -472,8 +510,10 @@ set(WIRESHARK_UTILS_SRCS
 	utils/rtp_audio_silence_generator.cpp
 	utils/software_update.cpp
 	${WIRESHARK_SOFTWARE_UPDATE_PLATFORM_SRC}
-	utils/stock_icon.cpp
+	utils/stat_table_exporter.cpp
 	utils/theme_manager.cpp
+	utils/zoom_scaling.cpp
+	utils/zoom_scaling_widgets.cpp
 	utils/theme_styler.cpp
 	utils/themes/color_math.cpp
 	utils/themes/legacy_color_prefs_migration.cpp
@@ -481,9 +521,12 @@ set(WIRESHARK_UTILS_SRCS
 	utils/themes/theme_parser.cpp
 	utils/themes/theme_stylesheet_loader.cpp
 	utils/themes/theme_token_handler.cpp
+	utils/themes/theme_writer.cpp
 	utils/themes/themed_icon.cpp
 	utils/themes/contrast_adapt_icon.cpp
+	utils/themes/themed_shape_icon.cpp
 	utils/themes/system_theme_detector_common.cpp
+	utils/themes/native_title_bar_common.cpp
 	${WIRESHARK_THEMES_PLATFORM_SRC}
 	utils/wireshark_mime_data.cpp
 	utils/wireshark_zip_helper.cpp
@@ -513,6 +556,7 @@ set(WIRESHARK_MODEL_SRCS
 	models/decode_as_delegate.cpp
 	models/decode_as_model.cpp
 	models/dissector_tables_model.cpp
+	models/distribution_model.cpp
 	models/enabled_protocols_model.cpp
 	models/expert_info_model.cpp
 	models/expert_info_proxy_model.cpp
@@ -601,10 +645,13 @@ set(WIRESHARK_QT_SRC
 	follow_stream_action.cpp
 	follow_stream_dialog.cpp
 	font_color_preferences_frame.cpp
+	font_preferences_frame.cpp
+	font_selection_dialog.cpp
 	funnel_string_dialog.cpp
 	funnel_text_dialog.cpp
 	geometry_state_dialog.cpp
 	glib_mainloop_on_qeventloop.cpp
+	graph_dialog.cpp
 	iax2_analysis_dialog.cpp
 	imsi_list_dialog.cpp
 	import_text_dialog.cpp
@@ -678,6 +725,7 @@ set(WIRESHARK_QT_SRC
 	tcp_dedup_dialog.cpp
 	tcp_stream_dialog.cpp
 	theme_debug_dialog.cpp
+	theme_designer_dialog.cpp
 	time_shift_dialog.cpp
 	traffic_table_dialog.cpp
 	uat_dialog.cpp
@@ -720,6 +768,7 @@ set(WIRESHARK_QT_TAP_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/lte_mac_statistics_dialog.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/lte_rlc_statistics_dialog.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/mtp3_summary_dialog.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/mka_ca_dialog.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/multicast_statistics_dialog.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/plot.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/plot_dialog.cpp
@@ -764,6 +813,7 @@ set(WIRESHARK_QT_UI
 	decode_as_dialog.ui
 	display_filter_expression_dialog.ui
 	dissector_tables_dialog.ui
+	distribution_dialog.ui
 	enabled_protocols_dialog.ui
 	expert_info_dialog.ui
 	export_object_dialog.ui
@@ -775,6 +825,8 @@ set(WIRESHARK_QT_UI
 	firewall_rules_dialog.ui
 	follow_stream_dialog.ui
 	font_color_preferences_frame.ui
+	font_preferences_frame.ui
+	font_selection_dialog.ui
 	funnel_string_dialog.ui
 	funnel_text_dialog.ui
 	gsm_map_summary_dialog.ui
@@ -830,6 +882,9 @@ set(WIRESHARK_QT_UI
 	supported_protocols_dialog.ui
 	tap_parameter_dialog.ui
 	tcp_stream_dialog.ui
+	theme_designer_dialog.ui
+	theme_import_error_dialog.ui
+	theme_name_dialog.ui
 	time_shift_dialog.ui
 	traffic_table_dialog.ui
 	uat_dialog.ui
@@ -843,7 +898,10 @@ set(WIRESHARK_QT_UI
 
 set(WIRESHARK_QT_WIDGETS_UI
 	widgets/capture_card_widget.ui
+	widgets/font_selection_widget.ui
 	widgets/learn_card_widget.ui
+	widgets/theme_color_editor.ui
+	widgets/theme_welcome_preview.ui
 	widgets/welcome_header_widget.ui
 )
 
@@ -928,7 +986,6 @@ qrc_add_files(
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/application.qss
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/welcome-page.qss
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/accordion-frame.qss
-	${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/bluetooth-table.qss
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/capture-card.qss
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/interface-toolbar-lineedit.qss
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/learn-card.qss
@@ -948,10 +1005,7 @@ qrc_finalize(NAME json_resource OUTPUT_VAR JSON_QRC)
 
 # Theme resources
 qrc_register(NAME themes PREFIX "/themes")
-add_theme(NAME "wireshark")
-add_theme(NAME "stratoshark")
-add_theme(NAME "inverted")
-add_theme(NAME "midnight-blue")
+add_bundled_themes()
 qrc_finalize(NAME themes OUTPUT_VAR THEMES_QRC)
 
 # Drop the file modification time of source files from generated files
@@ -973,8 +1027,6 @@ endif()
 qt_add_resources(WIRESHARK_QT_QRC
 	../../resources/about.qrc
 	../../resources/languages/languages.qrc
-	../../resources/layout.qrc
-	../../resources/stock_icons.qrc
 	../../resources/theme_icons.qrc
 	${WSICON_QRC}
 	${I18N_QRC}
@@ -1051,15 +1103,15 @@ if(Qt6DBus_FOUND)
 	target_link_libraries(qtui PUBLIC Qt6::DBus)
 endif()
 
+target_link_libraries(qtui PRIVATE GCrypt::GCrypt)
+
 target_include_directories(qtui
 	SYSTEM PRIVATE
-		${GCRYPT_INCLUDE_DIRS}
 		${MINIZIP_INCLUDE_DIRS}
 		${MINIZIPNG_INCLUDE_DIRS}
 		${PCAP_INCLUDE_DIRS}
 		${SPEEXDSP_INCLUDE_DIRS}
 		${WINSPARKLE_INCLUDE_DIRS}
-		${PACKAGEKIT_INCLUDE_DIRS}
 		$<$<CXX_COMPILER_ID:MSVC>:${ZLIB_INCLUDE_DIRS}>
 		$<$<CXX_COMPILER_ID:MSVC>:${ZLIBNG_INCLUDE_DIRS}>
 	PRIVATE
@@ -1074,6 +1126,30 @@ set_target_properties(qtui PROPERTIES
 	AUTOUIC ON
 	# AUTORCC not needed with qt_add_resources
 	#AUTORCC ON
+)
+
+# Regression test for the stylesheet length scaling; Qt Core and Widgets
+# headers only, no QApplication. Run by test/suite_unittests.py.
+add_executable(qt_zoom_scaling_test EXCLUDE_FROM_ALL
+	utils/zoom_scaling.cpp
+	utils/zoom_scaling_test.cpp
+)
+
+target_include_directories(qt_zoom_scaling_test
+	PRIVATE
+		${CMAKE_SOURCE_DIR}
+		${CMAKE_BINARY_DIR}
+)
+
+target_link_libraries(qt_zoom_scaling_test Qt${qtver}::Core Qt${qtver}::Widgets)
+
+set_target_properties(qt_zoom_scaling_test PROPERTIES
+	FOLDER "Tests"
+	EXCLUDE_FROM_DEFAULT_BUILD True
+	AUTOMOC OFF
+	AUTOUIC OFF
+	AUTORCC OFF
+	COMPILE_FLAGS "${WERROR_COMMON_FLAGS}"
 )
 
 # Qt also provides translation catalogs for strings used in Qt modules

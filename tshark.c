@@ -1066,6 +1066,15 @@ capture_opts_get_interface_list(int *err, char **err_str)
 }
 #endif
 
+/* Coloring rules are needed for --color output, for listing every matching
+ * rule in the packet details, and for listing matching disabled rules. */
+static bool
+coloring_rules_wanted(void)
+{
+    return dissect_color || prefs.gui_packet_list_multi_color_details ||
+           prefs.gui_coloring_rules_include_disabled;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -2052,7 +2061,7 @@ main(int argc, char *argv[])
         goto clean_exit;
     }
 
-    if (dissect_color || prefs.gui_packet_list_multi_color_details) {
+    if (coloring_rules_wanted()) {
         if (!color_filters_init(&err_msg, NULL, application_configuration_environment_prefix())) {
             fprintf(stderr, "%s\n", err_msg);
             g_free(err_msg);
@@ -3602,8 +3611,11 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
     }
 
     if (passed) {
+        frame_data *seq_frame;
+
         frame_data_set_after_dissect(&fdlocal, &cum_bytes);
-        cf->provider.prev_cap = cf->provider.prev_dis = frame_data_sequence_add(cf->provider.frames, &fdlocal);
+        seq_frame = frame_data_sequence_add(cf->provider.frames, &fdlocal);
+        cf->provider.prev_cap = cf->provider.prev_dis = seq_frame;
 
         /* If we're not doing dissection then there won't be any dependent frames.
          * More importantly, edt.pi.fd.dependent_frames won't be initialized because
@@ -3613,8 +3625,12 @@ process_packet_first_pass(capture_file *cf, epan_dissect_t *edt,
          */
         if (edt && cf->dfcode) {
             elapsed_start = g_get_monotonic_time();
-            if (dfilter_apply_edt(cf->dfcode, edt) && edt->pi.fd->dependent_frames) {
-                g_hash_table_foreach(edt->pi.fd->dependent_frames, find_and_mark_frame_depended_upon, cf->provider.frames);
+            if (seq_frame->passed_dfilter && dfilter_apply_edt(cf->dfcode, edt)) {
+                if (edt->pi.fd->dependent_frames) {
+                    g_hash_table_foreach(edt->pi.fd->dependent_frames, find_and_mark_frame_depended_upon, cf->provider.frames);
+                }
+            } else {
+                seq_frame->passed_dfilter = 0;
             }
 
             if (selected_frame_number != 0 && selected_frame_number == cf->count + 1) {
@@ -3832,7 +3848,7 @@ process_packet_second_pass(capture_file *cf, epan_dissect_t *edt,
             cf->provider.ref = &ref_frame;
         }
 
-        if (dissect_color || prefs.gui_packet_list_multi_color_details) {
+        if (coloring_rules_wanted()) {
             color_filters_prime_edt(edt);
             fdata->need_colorize = 1;
         }
@@ -4585,7 +4601,7 @@ process_packet_single_pass(capture_file *cf, epan_dissect_t *edt, int64_t offset
             cf->provider.ref = &ref_frame;
         }
 
-        if (dissect_color || prefs.gui_packet_list_multi_color_details) {
+        if (coloring_rules_wanted()) {
             color_filters_prime_edt(edt);
             fdata.need_colorize = 1;
         }

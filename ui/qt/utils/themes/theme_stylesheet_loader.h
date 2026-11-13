@@ -13,6 +13,7 @@
 #include <ui/qt/utils/theme_manager.h>
 
 #include <QHash>
+#include <QPalette>
 #include <QString>
 
 /**
@@ -34,18 +35,10 @@ public:
     using TokenMap = QHash<ThemeManager::ThemeToken, ThemeColorPair>;
 
     /**
-     * Load `:/stylesheets/<name>.qss` and return its contents with:
-     *
-     *   - every `wstheme(RoleName)` token replaced by the resolved
-     *     `#rrggbb` hex of the corresponding ThemeToken, picked from
-     *     `tokens` using `isDarkMode` to choose the light/dark side;
-     *   - every literal `%wsmode%` occurrence replaced by the string
-     *     `"dark"` or `"light"` — intended for picking mode-specific
-     *     asset filenames inside `image: url(...)` rules, e.g.
-     *       image: url(:/stock_icons/14x14/x-filter-dropdown.%wsmode%.png);
-     *     The `%wsmode%` placeholder takes no arguments and is a plain
-     *     text substitution; it runs before the `wstheme(...)`
-     *     regex pass.
+     * Load `:/stylesheets/<name>.qss` and return its contents with
+     * every `wstheme(RoleName)` token replaced by the resolved
+     * `#rrggbb` hex of the corresponding ThemeToken, picked from
+     * `tokens` using `isDarkMode` to choose the light/dark side.
      *
      * Returns an empty QString on any of:
      *   - `name` is empty or contains illegal characters / path
@@ -68,6 +61,21 @@ public:
     static QString load(const QString  &name,
                         const TokenMap &tokens,
                         bool            isDarkMode);
+
+    /**
+     * Replaces every `palette(<role>)` in @p sheet with @p palette's Active color
+     * for that role.  Qt resolves palette() in style sheets against the
+     * application palette, not the widget's, so a sheet previewing another
+     * palette resolves the references itself.  Role names are the ones Qt's
+     * style sheet grammar accepts, derived from QPalette::ColorRole.  A name
+     * that matches no role is left as written (Qt ignores it on the live page
+     * too) and logged with qWarning once per name.
+     *
+     * @param sheet   Style sheet text.
+     * @param palette Palette whose Active colors are substituted.
+     * @return The sheet with the palette() references resolved.
+     */
+    static QString resolvePaletteRoles(const QString &sheet, const QPalette &palette);
 };
 
 #endif /* THEME_STYLESHEET_LOADER_H */

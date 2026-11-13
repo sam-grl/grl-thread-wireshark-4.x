@@ -74,6 +74,7 @@ class FilterDialog;
 class FunnelStatistics;
 class PacketCommentDialog;
 class PacketList;
+class PreferencesDialog;
 class ProtoTree;
 class FilterExpressionToolBar;
 class WiresharkApplication;
@@ -250,6 +251,7 @@ private:
     FunnelStatistics          *funnel_statistics_;  /**< Lua funnel statistics manager. */
     QList<QPair<QAction *, bool>> freeze_actions_; /**< Actions whose enabled state is saved and restored around freeze/thaw. */
     QPointer<QWidget>          freeze_focus_;      /**< Widget to restore focus to after thawing. */
+    QPointer<PreferencesDialog> preferences_dialog_; /**< Open Preferences dialog; null when none exists. */
     QMap<QAction *, ts_type>   td_actions;         /**< Map from timestamp-display menu actions to ts_type values. */
     QMap<QAction *, ts_precision> tp_actions;      /**< Map from timestamp-precision menu actions to ts_precision values. */
     bool                       was_maximized_;     /**< @c true if the window was maximised before going full-screen. */
@@ -1030,6 +1032,16 @@ private slots:
      * @param filtered @c true to restrict the plot to currently displayed packets.
      */
     void showPlotDialog(const QString &y_field = QString(), bool filtered = false) override;
+
+    /**
+     * @brief Opens an I/O Graph dialog with one graph per filter.
+     * @param displayFilter Display filter of the first graph; empty for none.
+     * @param filters       Display filters, one extra graph each (at most maxIOGraphFilters).
+     * @param names         Legend names for @p filters; the filter text where missing.
+     */
+    void showIOGraphDialogForFilters(const QString &displayFilter,
+                                     const QVector<QString> &filters,
+                                     const QVector<QString> &names = QVector<QString>()) override;
 
     /** @brief Handles a triggered external (plugin) menu item by invoking its callback. */
     void externalMenuItemTriggered();

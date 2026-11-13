@@ -25,6 +25,7 @@ set(NONGENERATED_UI_SRC
 	io_graph_item.c
 	language.c
 	mcast_stream.c
+	mka_ca_stat.c
 	packet_list_utils.c
 	packet_range.c
 	persfilepath_opt.c
@@ -98,13 +99,8 @@ target_link_libraries(summary
 		wiretap
 		epan
 		wsutil
-		${GCRYPT_LIBRARIES}
+		GCrypt::GCrypt
 	)
-
-target_include_directories(summary
-	SYSTEM PRIVATE
-		${GCRYPT_INCLUDE_DIRS}
-)
 
 set_target_properties(ui summary PROPERTIES
 	LINK_FLAGS "${WS_LINK_FLAGS}"

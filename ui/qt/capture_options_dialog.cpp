@@ -59,8 +59,8 @@
 
 #include <ui/qt/utils/font_manager.h>
 #include <ui/qt/utils/qt_ui_utils.h>
-#include <ui/qt/utils/stock_icon.h>
 #include <ui/qt/utils/themes/contrast_adapt_icon.h>
+#include <ui/qt/utils/themes/themed_icon.h>
 #include <ui/qt/models/sparkline_delegate.h>
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 #include <ui/qt/models/pref_models.h>
@@ -169,7 +169,8 @@ CaptureOptionsDialog::CaptureOptionsDialog(QWidget *parent) :
     // The extcap-config decoration is a ContrastAdaptIcon; scale the tree's
     // icons with the application zoom level (consumer-side).
     auto applyIconSize = [this]() {
-        const int s = qRound(style()->pixelMetric(QStyle::PM_SmallIconSize) * FontManager::zoomFactor());
+        // The style's icon metric already follows the zoom.
+        const int s = style()->pixelMetric(QStyle::PM_SmallIconSize);
         ui->interfaceTree->setIconSize(QSize(s, s));
     };
     applyIconSize();
@@ -179,8 +180,8 @@ CaptureOptionsDialog::CaptureOptionsDialog(QWidget *parent) :
     // Allow renaming bookmarks here, but not in other views like the welcome screen.
     cache_model_->setBookmarkRenameEnabled(true);
 
-    ui->newToolButton->setIconByName("list-add");
-    ui->deleteToolButton->setIconByName("list-remove");
+    ui->newToolButton->setIcon(ThemedIcon("list-add"));
+    ui->deleteToolButton->setIcon(ThemedIcon("list-remove"));
 
     ui->filenameLineEdit->setPlaceholderText(tr("Leave blank to use a temporary file"));
 

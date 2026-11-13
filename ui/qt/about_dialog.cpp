@@ -42,6 +42,7 @@
 
 #include <ui/qt/utils/color_utils.h>
 #include <ui/qt/utils/qt_ui_utils.h>
+#include <ui/qt/utils/zoom_scaling.h>
 #include <ui/qt/utils/theme_manager.h>
 #include <ui/qt/utils/variant_pointer.h>
 #include <ui/qt/utils/workspace_state.h>
@@ -59,7 +60,6 @@
 #include <QClipboard>
 #include <QMenu>
 #include <QFileInfo>
-#include <QMessageBox>
 #include <QPlainTextEdit>
 
 AuthorListModel::AuthorListModel(QObject * parent) :
@@ -237,7 +237,7 @@ FolderListModel::FolderListModel(QObject * parent):
         appendRow(QStringList() << tr("MIB/PIB path") << path.trimmed() << tr("SMI MIB/PIB search path"));
 #endif
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     /* Mac Extras */
     QString extras_path = QStringLiteral("%1/../Resources/Extras").arg(mainApp->applicationDirPath());
     appendRow(QStringList() << tr("macOS Extras") << QDir::cleanPath(extras_path) << tr("Extra macOS packages"));
@@ -258,6 +258,7 @@ AboutDialog::AboutDialog(QWidget *parent) :
     ui(new Ui::AboutDialog)
 {
     ui->setupUi(this);
+    ZoomScaling::scaleSizeLimits(ui->label_title);
     setAttribute(Qt::WA_DeleteOnClose, true);
     QFile f_acknowledgements;
     QFile f_license;
@@ -500,28 +501,7 @@ void AboutDialog::urlDoubleClicked(const QModelIndex &idx)
         return;
 
     QString urlText = table->model()->data(idx).toString();
-    if (urlText.isEmpty())
-        return;
-
-    if (! QDir(urlText).exists())
-    {
-        if (QMessageBox::question(this, tr("The directory does not exist"),
-                          tr("Should the directory %1 be created?").arg(urlText)) == QMessageBox::Yes)
-        {
-            if (! QDir().mkpath(urlText))
-            {
-                QMessageBox::warning(this, tr("The directory could not be created"),
-                                     tr("The directory %1 could not be created.").arg(urlText));
-            }
-        }
-    }
-
-    if (QDir(urlText).exists())
-    {
-        QUrl url = QUrl::fromLocalFile(urlText);
-        if (url.isValid())
-            QDesktopServices::openUrl(url);
-    }
+    desktop_open_folder(urlText, this);
 }
 
 void AboutDialog::handleCopyMenu(QPoint pos)
@@ -539,7 +519,7 @@ void AboutDialog::handleCopyMenu(QPoint pos)
 
     if (ui->tabWidget->currentWidget() == ui->tab_plugins)
     {
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
         QString show_in_str = tr("Show in Finder");
 #else
         QString show_in_str = tr("Show in Folder");

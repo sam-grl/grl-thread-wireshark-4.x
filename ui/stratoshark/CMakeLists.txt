@@ -39,6 +39,7 @@ set(WIRESHARK_WIDGET_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/filter_expression_toolbar.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/find_line_edit.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/follow_stream_text.h
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/font_selection_widget.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/hex_data_source_view.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/interface_toolbar_lineedit.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/json_data_source_view.h
@@ -65,10 +66,13 @@ set(WIRESHARK_WIDGET_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/resolved_addresses_view.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/rowmove_tree_view.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/splash_overlay.h
-	${CMAKE_SOURCE_DIR}/ui/qt/widgets/stock_icon_tool_button.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/syntax_line_edit.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/tabnav_tree_view.h
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_code_view.h
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_color_editor.h
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_preview_pick.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_preview_widget.h
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_welcome_preview.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_tab.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_tree.h
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_types_list.h
@@ -98,29 +102,38 @@ set (STRATOSHARK_MANAGER_HEADERS ${WIRESHARK_MANAGER_HEADERS})
 set(WIRESHARK_UTILS_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/byte_view_text_cells.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/color_utils.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/coloring_rule_utils.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/data_printer.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/field_information.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/font_manager.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/frame_information.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/idata_printable.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/jsonc_document.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/plot_theme.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/profile_switcher.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/proto_node.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/qt_ui_utils.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/software_update.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/software_update_backend.h
-	${CMAKE_SOURCE_DIR}/ui/qt/utils/stock_icon.h
-	${CMAKE_SOURCE_DIR}/ui/qt/utils/tango_colors.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/stat_table_exporter.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/theme_manager.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/zoom_scaling.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/theme_styler.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/color_math.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/legacy_color_prefs_migration.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/native_title_bar.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/system_theme_detector.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/theme_format.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/theme_palette_builder.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/theme_parser.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/theme_stylesheet_loader.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/theme_token_handler.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/theme_writer.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/themed_icon.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/contrast_adapt_icon.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/themed_shape_icon.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/icon_engine_utils.h
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/unique_name.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/variant_pointer.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/wireshark_mime_data.h
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/wireshark_zip_helper.h
@@ -151,6 +164,7 @@ set(WIRESHARK_MODEL_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/models/decode_as_delegate.h
 	${CMAKE_SOURCE_DIR}/ui/qt/models/decode_as_model.h
 	${CMAKE_SOURCE_DIR}/ui/qt/models/dissector_tables_model.h
+	${CMAKE_SOURCE_DIR}/ui/qt/models/distribution_model.h
 	${CMAKE_SOURCE_DIR}/ui/qt/models/enabled_protocols_model.h
 	${CMAKE_SOURCE_DIR}/ui/qt/models/expert_info_model.h
 	${CMAKE_SOURCE_DIR}/ui/qt/models/expert_info_proxy_model.h
@@ -215,6 +229,7 @@ set(WIRESHARK_QT_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/decode_as_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/display_filter_expression_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/dissector_tables_dialog.h
+	${CMAKE_SOURCE_DIR}/ui/qt/distribution_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/enabled_protocols_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/endpoint_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/expert_info_dialog.h
@@ -230,12 +245,15 @@ set(WIRESHARK_QT_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/follow_stream_action.h
 	${CMAKE_SOURCE_DIR}/ui/qt/follow_stream_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/font_color_preferences_frame.h
+	${CMAKE_SOURCE_DIR}/ui/qt/font_preferences_frame.h
+	${CMAKE_SOURCE_DIR}/ui/qt/font_selection_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/funnel_statistics.h
 	${CMAKE_SOURCE_DIR}/ui/qt/funnel_string_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/funnel_text_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/geometry_state_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/glib_mainloop_on_qeventloop.h
 	${CMAKE_SOURCE_DIR}/ui/qt/graph.h
+	${CMAKE_SOURCE_DIR}/ui/qt/graph_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/import_text_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/interface_frame.h
 	${CMAKE_SOURCE_DIR}/ui/qt/interface_toolbar.h
@@ -285,6 +303,7 @@ set(WIRESHARK_QT_HEADERS
 	${CMAKE_SOURCE_DIR}/ui/qt/tap_parameter_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/tcp_stream_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/theme_debug_dialog.h
+	${CMAKE_SOURCE_DIR}/ui/qt/theme_designer_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/time_shift_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/traffic_table_dialog.h
 	${CMAKE_SOURCE_DIR}/ui/qt/uat_dialog.h
@@ -359,6 +378,7 @@ set(WIRESHARK_WIDGET_SRCS
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/filter_expression_toolbar.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/find_line_edit.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/follow_stream_text.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/font_selection_widget.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/hex_data_source_view.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/interface_toolbar_lineedit.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/json_data_source_view.cpp
@@ -384,10 +404,13 @@ set(WIRESHARK_WIDGET_SRCS
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/resolved_addresses_view.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/rowmove_tree_view.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/splash_overlay.cpp
-	${CMAKE_SOURCE_DIR}/ui/qt/widgets/stock_icon_tool_button.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/syntax_line_edit.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/tabnav_tree_view.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_code_view.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_color_editor.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_preview_pick.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_preview_widget.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_welcome_preview.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_tab.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_tree.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/traffic_types_list.cpp
@@ -415,20 +438,32 @@ set(WIRESHARK_MANAGER_SRCS
 set (STRATOSHARK_MANAGER_SRCS ${WIRESHARK_MANAGER_SRCS})
 
 if(APPLE)
-	set(WIRESHARK_THEMES_PLATFORM_SRC ${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/system_theme_detector_mac.mm)
+	set(WIRESHARK_THEMES_PLATFORM_SRC
+		${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/system_theme_detector_mac.mm
+		${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/native_title_bar_mac.mm
+	)
 elseif(WIN32)
-	set(WIRESHARK_THEMES_PLATFORM_SRC ${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/system_theme_detector_win.cpp)
+	set(WIRESHARK_THEMES_PLATFORM_SRC
+		${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/system_theme_detector_win.cpp
+		${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/native_title_bar_win.cpp
+	)
 elseif(UNIX)
-	set(WIRESHARK_THEMES_PLATFORM_SRC ${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/system_theme_detector_unix.cpp)
+	set(WIRESHARK_THEMES_PLATFORM_SRC
+		${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/system_theme_detector_unix.cpp
+		${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/native_title_bar_stub.cpp
+	)
 else()
-	set(WIRESHARK_THEMES_PLATFORM_SRC ${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/system_theme_detector_stub.cpp)
+	set(WIRESHARK_THEMES_PLATFORM_SRC
+		${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/system_theme_detector_stub.cpp
+		${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/native_title_bar_stub.cpp
+	)
 endif()
 
 if(HAVE_SOFTWARE_UPDATE AND WIN32)
 	set(WIRESHARK_SOFTWARE_UPDATE_PLATFORM_SRC ${CMAKE_SOURCE_DIR}/ui/qt/utils/software_update_backend_win.cpp)
 elseif(HAVE_SOFTWARE_UPDATE AND APPLE)
 	set(WIRESHARK_SOFTWARE_UPDATE_PLATFORM_SRC ${CMAKE_SOURCE_DIR}/ui/qt/utils/software_update_backend_mac.cpp)
-elseif(PACKAGEKIT_FOUND)
+elseif(HAVE_SOFTWARE_UPDATE)
 	set(WIRESHARK_SOFTWARE_UPDATE_PLATFORM_SRC ${CMAKE_SOURCE_DIR}/ui/qt/utils/software_update_backend_linux.cpp)
 else()
 	set(WIRESHARK_SOFTWARE_UPDATE_PLATFORM_SRC ${CMAKE_SOURCE_DIR}/ui/qt/utils/software_update_backend_stub.cpp)
@@ -437,17 +472,22 @@ endif()
 set(WIRESHARK_UTILS_SRCS
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/byte_view_text_cells.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/color_utils.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/coloring_rule_utils.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/data_printer.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/field_information.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/font_manager.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/frame_information.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/jsonc_document.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/plot_theme.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/profile_switcher.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/proto_node.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/qt_ui_utils.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/software_update.cpp
 	${WIRESHARK_SOFTWARE_UPDATE_PLATFORM_SRC}
-	${CMAKE_SOURCE_DIR}/ui/qt/utils/stock_icon.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/stat_table_exporter.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/theme_manager.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/zoom_scaling.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/zoom_scaling_widgets.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/theme_styler.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/color_math.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/legacy_color_prefs_migration.cpp
@@ -455,9 +495,12 @@ set(WIRESHARK_UTILS_SRCS
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/theme_parser.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/theme_stylesheet_loader.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/theme_token_handler.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/theme_writer.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/themed_icon.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/contrast_adapt_icon.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/themed_shape_icon.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/system_theme_detector_common.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/utils/themes/native_title_bar_common.cpp
 	${WIRESHARK_THEMES_PLATFORM_SRC}
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/wireshark_mime_data.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/utils/wireshark_zip_helper.cpp
@@ -488,6 +531,7 @@ set(WIRESHARK_MODEL_SRCS
 	${CMAKE_SOURCE_DIR}/ui/qt/models/decode_as_delegate.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/models/decode_as_model.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/models/dissector_tables_model.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/models/distribution_model.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/models/enabled_protocols_model.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/models/expert_info_model.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/models/expert_info_proxy_model.cpp
@@ -564,10 +608,13 @@ set(WIRESHARK_QT_SRC
 	${CMAKE_SOURCE_DIR}/ui/qt/follow_stream_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/follow_stream_action.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/font_color_preferences_frame.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/font_preferences_frame.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/font_selection_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/funnel_string_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/funnel_text_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/geometry_state_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/glib_mainloop_on_qeventloop.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/graph_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/import_text_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/interface_frame.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/interface_toolbar.cpp
@@ -611,6 +658,7 @@ set(WIRESHARK_QT_SRC
 	${CMAKE_SOURCE_DIR}/ui/qt/tap_parameter_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/tcp_stream_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/theme_debug_dialog.cpp
+	${CMAKE_SOURCE_DIR}/ui/qt/theme_designer_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/time_shift_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/traffic_table_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/uat_dialog.cpp
@@ -659,6 +707,7 @@ set (STRATOSHARK_QT_SRC
 	${WIRESHARK_QT_SRC})
 
 set(WIRESHARK_QT_TAP_SRC
+	${CMAKE_SOURCE_DIR}/ui/qt/distribution_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/expert_info_dialog.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/funnel_statistics.cpp
 	${CMAKE_SOURCE_DIR}/ui/qt/graph.cpp
@@ -696,6 +745,7 @@ set(WIRESHARK_QT_UI
 	${CMAKE_SOURCE_DIR}/ui/qt/decode_as_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/display_filter_expression_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/dissector_tables_dialog.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/distribution_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/enabled_protocols_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/expert_info_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/extcap_options_dialog.ui
@@ -704,6 +754,8 @@ set(WIRESHARK_QT_UI
 	${CMAKE_SOURCE_DIR}/ui/qt/filter_expression_frame.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/follow_stream_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/font_color_preferences_frame.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/font_preferences_frame.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/font_selection_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/funnel_string_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/funnel_text_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/import_text_dialog.ui
@@ -740,6 +792,9 @@ set(WIRESHARK_QT_UI
 	${CMAKE_SOURCE_DIR}/ui/qt/supported_protocols_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/tap_parameter_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/tcp_stream_dialog.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/theme_designer_dialog.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/theme_import_error_dialog.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/theme_name_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/time_shift_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/traffic_table_dialog.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/uat_dialog.ui
@@ -750,7 +805,10 @@ set(WIRESHARK_QT_UI
 
 set(WIRESHARK_QT_WIDGETS_UI
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/capture_card_widget.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/font_selection_widget.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/learn_card_widget.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_color_editor.ui
+	${CMAKE_SOURCE_DIR}/ui/qt/widgets/theme_welcome_preview.ui
 	${CMAKE_SOURCE_DIR}/ui/qt/widgets/welcome_header_widget.ui
 )
 
@@ -836,7 +894,6 @@ qrc_add_files(
 	FILES
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/application.qss
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/accordion-frame.qss
-	${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/bluetooth-table.qss
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/capture-card.qss
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/interface-toolbar-lineedit.qss
 	${CMAKE_SOURCE_DIR}/ui/stylesheets/widgets/learn-card.qss
@@ -856,10 +913,7 @@ qrc_finalize(NAME json_resource TARGET stratoshark OUTPUT_VAR STRATOSHARK_JSON_Q
 
 # Theme resources
 qrc_register(NAME themes TARGET stratoshark PREFIX "/themes")
-add_theme(NAME "wireshark" TARGET stratoshark )
-add_theme(NAME "stratoshark" TARGET stratoshark )
-add_theme(NAME "inverted" TARGET stratoshark )
-add_theme(NAME "midnight-blue" TARGET stratoshark )
+add_bundled_themes(TARGET stratoshark)
 qrc_finalize(NAME themes TARGET stratoshark OUTPUT_VAR STRATOSHARK_THEMES_QRC)
 
 # Drop the file modification time of source files from generated files
@@ -881,9 +935,7 @@ endif()
 qt_add_resources(STRATOSHARK_QT_QRC
 	${CMAKE_SOURCE_DIR}/resources/about.qrc
 	${CMAKE_SOURCE_DIR}/resources/languages/languages.qrc
-	${CMAKE_SOURCE_DIR}/resources/layout.qrc
 	${SSICON_QRC}
-	${CMAKE_SOURCE_DIR}/resources/stock_icons.qrc
 	${CMAKE_SOURCE_DIR}/resources/theme_icons.qrc
 	${STRATOSHARK_I18N_QRC}
 	${STRATOSHARK_AUTHORS_QRC}
@@ -951,15 +1003,15 @@ add_library(ui_stratoshark OBJECT
 	stratoshark-tap-register.c
 )
 
+target_link_libraries(ui_stratoshark PRIVATE GCrypt::GCrypt)
+
 target_include_directories(ui_stratoshark
 	SYSTEM PRIVATE
-		${GCRYPT_INCLUDE_DIRS}
 		${MINIZIP_INCLUDE_DIRS}
 		${MINIZIPNG_INCLUDE_DIRS}
 		${PCAP_INCLUDE_DIRS}
 		${SPEEXDSP_INCLUDE_DIRS}
 		${WINSPARKLE_INCLUDE_DIRS}
-		${PACKAGEKIT_INCLUDE_DIRS}
 		$<$<CXX_COMPILER_ID:MSVC>:${ZLIB_INCLUDE_DIRS}>
 		$<$<CXX_COMPILER_ID:MSVC>:${ZLIBNG_INCLUDE_DIRS}>
 	PRIVATE

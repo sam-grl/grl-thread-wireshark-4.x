@@ -15,6 +15,8 @@
 #include <ui_rsa_keys_frame.h>
 
 #include "ui/qt/widgets/wireshark_file_dialog.h"
+#include <ui/qt/utils/qt_ui_utils.h>
+#include <ui/qt/utils/zoom_scaling.h>
 #include <wsutil/report_message.h>
 #include <epan/prefs.h>
 #include <QMessageBox>
@@ -31,8 +33,9 @@ RsaKeysFrame::RsaKeysFrame(QWidget *parent) :
     pkcs11_libs_model_(0)
 {
     ui->setupUi(this);
+    ZoomScaling::scaleSizeLimits(ui->libsView);
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     ui->addFileButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->addItemButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->deleteItemButton->setAttribute(Qt::WA_MacSmallSize, true);
@@ -53,6 +56,8 @@ RsaKeysFrame::RsaKeysFrame(QWidget *parent) :
     ui->keysView->setModel(rsa_keys_model_);
     connect(ui->keysView->selectionModel(), &QItemSelectionModel::currentChanged,
            this, &RsaKeysFrame::keyCurrentChanged);
+
+    set_section_title_font(ui->groupBox);
 }
 #else   /* ! HAVE_LIBGNUTLS */
 RsaKeysFrame::RsaKeysFrame(QWidget *parent) : QFrame(parent) { }

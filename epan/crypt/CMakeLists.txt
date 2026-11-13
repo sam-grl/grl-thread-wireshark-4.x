@@ -16,6 +16,8 @@ set(CRYPT_HEADER_FILES
 	dot11decrypt_user.h
 	dot11decrypt_util.h
 	dot11decrypt_ws.h
+	dot1905decrypt.h
+	dot1905mic.h
 	kasumi.h
 	wep-wpadefs.h
 )
@@ -26,6 +28,8 @@ set(CRYPT_FILES
 	dot11decrypt_util.c
 	dot11decrypt_wep.c
 	dot11decrypt_ws.c
+	dot1905decrypt.c
+	dot1905mic.c
 	${CUSTOM_CRYPT_SRC}
 )
 
@@ -49,9 +53,9 @@ add_library(crypt OBJECT
 	${CRYPT_FILES}
 )
 
+target_link_libraries(crypt PRIVATE GCrypt::GCrypt)
+
 target_include_directories(crypt
-	SYSTEM PRIVATE
-		${GCRYPT_INCLUDE_DIRS}
 	PRIVATE
 		${CMAKE_CURRENT_BINARY_DIR}
 		${CMAKE_CURRENT_SOURCE_DIR}

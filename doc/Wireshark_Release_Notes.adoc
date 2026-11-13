@@ -23,6 +23,21 @@ If you or your organization would like to contribute or become a sponsor, please
 // Add a summary of **major** changes here.
 // Add other changes to "New and Updated Features" below.
 
+The following changes have been made since version 4.7.4:
+
+// https://developer.apple.com/news/?id=w4atic4c
+// https://developer.apple.com/help/account/certificates/replace-developer-id-certificates
+* macOS disk images and applications are now signed using certificates issued by Apple's Developer ID Certification Authority (G2).
+  The previous certificate was issued by Apple's Developer ID Certification Authority, which expires in early 2027.
+
+* EAPOL-MKA (MACsec Key Agreement) gained a Connectivity Associations
+  analysis view, available from menu:Statistics[EAPOL-MKA > Connectivity
+  Associations] and from TShark with *-z mka,ca*. It groups traffic by
+  Connectivity Association (CKN), lists the detected peers and key servers,
+  and reconstructs each peer group formation (startup, rekey, new peer, and
+  key server change) with per-peer installation, formation, and retirement
+  times.
+
 The following changes have been made since version 4.7.3:
 
 * You can now https://www.wireshark.org/docs/wsug_html/#ChCustTaggingSection[tag packets] with emojis, text, or URLs similar to coloring rules.
@@ -32,8 +47,11 @@ The following changes have been made since version 4.7.3:
   and hovering over any of those bytes highlights the whole character.
 * Holding down kbd:[↓] and kbd:[↑] will move rapidly through the packet list.
 * Coloring rules are now saved as a https://jsonc.org/[JSONC] (JSON with comments) file.
-  The legacy file format is still supported, but support will be removed in a future release.
-* Support for automatic update notification and updates on Linux distributions supporting PackageKit >= 1.1.12.
+  The legacy `colorfilters` file is only read, and converted, when no personal `coloring_rules.jsonc` exists;
+  otherwise only the JSONC file is used, so deleted rules no longer reappear from an old legacy file.
+  A personal `coloring_rules.jsonc` that cannot be parsed is now reported instead of silently treated as empty.
+  Support for the legacy file format will be removed in a future release.
+* Support for automatic update notification and updates on Linux distributions supporting PackageKit over D-Bus.
 
 The following changes have been made since version 4.7.2:
 
@@ -88,14 +106,19 @@ The following changes have been made since version 4.6.0:
 * Welcome Page Overhaul
   The welcome page has been redesigned to be more informative and easier to navigate. It now highlights the learning sections better and includes a new sidebar with tips and tricks for using Wireshark effectively. The welcome page is now also more accessible, with improved keyboard navigation and screen reader support.
 
+* The welcome page has a new preference to show the Open and Capture sections side-by-side. It falls back to stacked when the window is too narrow.
+
 * Lua Debugger
   A built-in Lua script debugger has been added. It supports breakpoints, single-stepping, variable inspection, expression evaluation, and stack traces. The debugger can be opened from the menu:Tools[Lua Debugger] menu.
 
 * Themes
-  Wireshark now drives the colors used throughout the GUI from a single theme instead of many individual color preferences. The renamed menu:Appearance[Theme and Font] preferences page lets you pick a theme, switch between Light, Dark, and System appearance, set the packet pane font, and preview the result on a mockup of a capture window. A built-in default theme ships with Wireshark, and additional themes can be installed as JSONC (JSON with Comments) files. The previous per-color settings (marked and ignored packets, "Follow Stream" client and server text, display filter validity, and the selected packet) are now provided by the active theme.
-  Personal themes can now be dropped as single `.jsonc` files into _$HOME/.local/lib/wireshark/themes_ (Unix) or _%APPDATA%\Wireshark\themes_ (Windows); the filename becomes the theme's name in the dropdown. The exact path is shown in the About dialog's _Folders_ tab.
-  On first launch after the upgrade, Wireshark checks the Default profile's preferences for customized values of the removed per-color settings. If any are found, a personal theme named _Personal (Migrated)_ is created automatically in the personal themes directory, the legacy keys are removed from the Default profile's preferences file, and the theme is activated so the original visual customizations are preserved. The migration runs once: the generated _personal.jsonc_ can be edited, renamed, or deleted by hand at any time.
-  The welcome page section headers ("Open", "Capture", "Learn") and the filter validity tints have been restored to the historical Classic look (Tango sky_blue brand, saturated GTK-era dark green / dark red filter backgrounds).
+  The colors used throughout the GUI, including graphs, now come from a theme instead of individual color preferences; packet coloring rules are unchanged. The menu:Appearance[Theme] preferences page lets you pick a theme, choose Light, Dark, or System appearance, and preview the result before applying it. See https://www.wireshark.org/docs/wsug_html/#ChCustPrefsThemeSection[Theme preferences] in the User's Guide for details.
+  Besides the default _Wireshark Default_ theme, a _High Contrast_ theme, two color-blind friendly themes, _Protanopia & Deuteranopia_ and _Tritanopia_, and the themes _Solarized_, _Catppuccin Frappé_, _Catppuccin Macchiato_, _Catppuccin Mocha_, _Tokyo Night_ and _Tokyo Night Storm_ are included. A new _Contrast_ setting (_System_, _Standard_, or _High_) raises the contrast of any theme; _System_ follows the contrast preference of the operating system. The expert information severity icons now differ by shape as well as by color.
+  You can add your own themes as `.jsonc` files in the personal themes folder, which is shown in the About dialog's _Folders_ tab and opens from menu:Help[Personal Themes Folder]. See https://www.wireshark.org/docs/wsug_html/#ChCustPersonalThemes[Personal themes] for details.
+  If you had customized the packet selection, marked, ignored, or Follow Stream colors in the Default profile, Wireshark converts them once into a personal theme named _Personal (Migrated)_ and selects it, so those colors are kept.
+
+* Theme Designer
+  The new menu:View[Internals,Theme Designer...] tool, also reachable from the _Theme Designer..._ button on the menu:Appearance[Theme] preferences page, lets you create your own themes. Copy any theme or start from the default, then edit every color a theme file can set (including the graph colors) and the theme fonts. Colors that are derived from others are shown read-only. Edited colors and fonts are highlighted and can be reverted one by one, and a code view shows the generated JSONC with a diff against the base theme. A mock welcome page and packet list, shown on two tabs, let you try the result in light and dark before you use it. Clicking a part of a sample selects the color that draws it in the Colors tab, and the context menu of a sample lists all colors of that part and saves the sample as an image. Derived colors have a context menu entry that jumps to the color they are computed from. Themes that ship with Wireshark are read-only and can only be copied. Your own themes are stored with the other personal themes and can be renamed and deleted. Themes can be exported to a `.jsonc` file and imported from one to exchange them with colleagues; imported files are validated and problems are reported.
 
 * The Default profile now has additional column "Delta", showing the delta time from the previous displayed packet.
 
@@ -166,14 +189,26 @@ The following features are either new or have been significantly updated since v
   contacts wireshark.org; the update itself is installed through the desktop's
   software center (e.g. GNOME Software or KDE Discover). Self-compiled builds
   and Flatpak, Snap or AppImage installations are not checked.
-  Building with this support requires the optional packagekit-glib2 library,
-  version 1.1.12 or later.
+  PackageKit is queried over D-Bus, so building with this support only
+  requires the Qt DBus module.
 
-* The Windows installers now ship with Npcap 1.88.
+* Disabled coloring rules can now be shown in the packet details.
+  With the new preference `gui.coloring_rules_include_disabled` (menu:Edit[Preferences > Appearance > Layout],
+  "Show disabled coloring rules", off by default) a disabled rule that matches a packet is listed
+  under the Frame tree, dimmed and in italics, and can be found with the `frame.coloring_rule.*` fields.
+  Disabled rules never color packets. When several rules match, they are listed as a
+  "Coloring Rules" subtree with one entry per rule (name, filter string and a Disabled flag);
+  the new `frame.coloring_rule.count` field holds the number of listed rules.
+  In the Frame tree, the context menu of a coloring rule now offers Disable and Enable,
+  which change the rule itself, are saved with the coloring rules and re-dissect the capture.
+
+* The Windows installers now ship with Npcap 1.89.
   They previously shipped with Npcap 1.83.
 
 * The Windows and macOS installers now ship with Qt 6.11.1.
   They previously shipped with Qt 6.9.3.
+
+* The Help menu has a new menu:Help[Discord] entry, which opens the invitation to the Wireshark Discord server.
 
 // XXX This should just describe what changed.
 // * The capture and display filter fields have a refreshed, consistent look and
@@ -231,6 +266,43 @@ The following features are either new or have been significantly updated since v
   The new `opcua.ns_offset` preference maps the namespace indexes of the file
   to those in the packets.
 
+* The AJP13 dissector reassembles request and response bodies spanning
+  multiple AJP13 packets, controlled by the new `ajp13.reassemble_body`
+  preference, and supports Export Objects (menu:File[Export Objects,AJP13]
+  and `tshark --export-objects ajp13,<destdir>`). Like with HTTP,
+  content-encoded bodies are uncompressed, controlled by the new
+  `ajp13.decompress_body` preference.
+
+* The Help menu entries Website and Wiki now show the Wireshark application icon on
+  Linux and Windows, and Ask (Q&A) no longer has an icon.
+
+* The monospace font used in the packet list, packet details, packet bytes and other text views
+  is now chosen on the new menu:Edit[Preferences > Appearance > Fonts] page, below Theme,
+  instead of in the Theme page and the system font dialog.
+  The page lists the font families, each drawn in its own typeface, with a filter field,
+  a "Show only monospaced fonts" option (on by default), the styles of the family,
+  the size (steps of 0.5 points, can be typed) and a sample.
+  Strikeout and Underline can be set, and bold or oblique styles are now applied
+  (they were stored but ignored before). An italic or underlined font hides the italic and underline markers
+  in the packet details, so only their colors mark disabled coloring rules and links then.
+  The inline page also fixes the font selection on macOS, where the native font panel
+  ignored the monospaced filter and offered no usable size control.
+  wsbuglink:21688[]
+
+* A new Distribution dialog (menu:Statistics[Distribution], or the "Distribution" entry in the packet details context menu) counts how often the values of up to four fields occur.
+  The fields are entered in a separate _Fields_ line (comma separated, with completion and validation),
+  and the _Display filter_ line limits the packets that are counted.
+  Values sort by their type (numbers, addresses), the new _Resolve values_ option shows value strings,
+  a _Show chart_ option draws a bar chart of the most frequent values, and the table updates in place during a live capture.
+  Rows can be used as filters from their context menu (including _Copy as Filter_) or sent to the I/O Graph with _Show in I/O Graph_.
+  The copied and saved text includes the Count column, `-z distribution,<fields>` opens the dialog, and the dialog has a Help button.
+
+* Kerberos long-term keys can be embedded in a pcapng Decryption Secrets Block.
+  `editcap --inject-secrets krb5,<file>` inserts a key log. Each line is an
+  encryption type and a hex key, for example `18` or `aes256-cts-hmac-sha1-96`
+  followed by the key. The keys are used without the Kerberos decrypt preference
+  and without a keytab file.
+
 === Removed Features and Support
 
 Dumpcap's TCP@host:port interface has been removed. Tools like `socat`, `ncat`,
@@ -267,6 +339,7 @@ Xiph.org Ogg Stream
 [commaize]
 --
 Apple Darwin Metadata
+Authentication Service Based on EAP for Use with CoAP (CoAP-EAP)
 Axia Livewire
 Controller Interface Transport Protocol (CITP)
 DCERPC SCARD_PACK
@@ -279,6 +352,7 @@ Linux mac80211_hwsim Netlink
 Linux Open vSwitch Netlink (OVS)
 MCData
 MCTP over SMBus/I2C
+Media over QUIC Lite (moq-lite)
 MIDI System Exclusive DigiTech
 Mikrotik RoMON
 Multicast Router Discovery (MRD)

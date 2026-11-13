@@ -15,9 +15,15 @@
 #include <QMutex>
 #include <QObject>
 #include <QPalette>
+#include <QList>
 #include <QString>
+#include <QStringList>
 
 class SystemThemeDetector;
+struct ThemeDraft;
+
+/** Contrast level of the theme derivation: which ColorMath ratio set applies. */
+enum class ThemeContrast { Standard, High };
 
 /**
  * Theme metadata from the "meta" section of theme.jsonc.
@@ -28,6 +34,9 @@ struct ThemeInfo {
     int     version = 0;    ///< Schema version (currently 1)
     QString description;    ///< One-line description shown in preferences
     QString author;         ///< Theme author or organization
+    ThemeContrast contrast = ThemeContrast::Standard; ///< Declared by the theme's top-level "contrast" field
+    bool    builtIn = false;///< True for themes bundled as resources, false for personal files
+    QString filePath;       ///< Resource path or file path the theme was read from
 };
 
 struct ThemeSectionInfo {
@@ -38,6 +47,52 @@ struct ThemeSectionInfo {
 struct ThemeColorPair {
     QColor light;
     QColor dark;
+
+    /** The color for a mode: @c dark when @p isDarkMode, else @c light. */
+    QColor forMode(bool isDarkMode) const { return isDarkMode ? dark : light; }
+    /** Sets the color for a mode: @c dark when @p isDarkMode, else @c light. */
+    void setForMode(bool isDarkMode, const QColor &color) { (isDarkMode ? dark : light) = color; }
+
+    /** True when both colors are valid, or both are invalid, and valid ones have the same RGBA. */
+    static bool sameColor(const QColor &a, const QColor &b) {
+        return a.isValid() == b.isValid() && (!a.isValid() || a.rgba() == b.rgba());
+    }
+    /** True when both the light and the dark side are valid colors. */
+    bool isValid() const { return light.isValid() && dark.isValid(); }
+    bool operator==(const ThemeColorPair &other) const {
+        return sameColor(light, other.light) && sameColor(dark, other.dark);
+    }
+    bool operator!=(const ThemeColorPair &other) const { return !(*this == other); }
+};
+
+/**
+ * A font a theme asks for.  An empty family and a zero size mean the
+ * theme leaves the choice to the platform default.
+ */
+struct ThemeFontHint {
+    QString family;         ///< Font family; empty when unset
+    int     pointSize = 0;  ///< Size in points; 0 when unset
+
+    /** True when the theme sets a family or a size. */
+    bool isSet() const { return !family.isEmpty() || pointSize > 0; }
+    bool operator==(const ThemeFontHint &other) const {
+        return family == other.family && pointSize == other.pointSize;
+    }
+    bool operator!=(const ThemeFontHint &other) const { return !(*this == other); }
+};
+
+/**
+ * Non-fatal findings collected while parsing a theme file.
+ */
+struct ThemeParseReport {
+    /** Every structural message in document order, each carrying its JSON path
+     *  and, when it could be found, the line ("Line 23: packets.marked.dark: ..."). */
+    QStringList messages;
+    /** Color strings that are present but not a color, plus token values that
+     *  are not objects. */
+    int invalidValues = 0;
+    /** Root keys outside the set a theme file may contain. */
+    int unknownTopLevelKeys = 0;
 };
 
 /**
@@ -52,7 +107,6 @@ struct ThemeColorPair {
  *   themes/theme_token_handler.{h,cpp}     — derives Header* / Update* / …
  *                                            from the brand + accent inputs
  *   themes/theme_palette_builder.{h,cpp}   — constructs the QPalette
- *                                            and pushes it via setPalette()
  *   themes/theme_stylesheet_loader.{h,cpp} — reads :/stylesheets/ and
  *                                            resolves wstheme(...) tokens
  *   themes/color_math.{h,cpp}              — pure color-math statics
@@ -60,11 +114,11 @@ struct ThemeColorPair {
  *   themes/system_theme_detector*.{h,cpp,mm} — platform-native OS
  *                                            light/dark detection.
  *
- * A theme file (resources/themes/<name>/theme.jsonc) declares six
- * mandatory colors — `brand.primary`, `brand.deep`, and four
- * `accent.*` values.  Every other token the UI consumes (Header*,
- * Section*, Update*, Packets*, Conversation*, Expert*, TextOnDark*,
- * …) is derived from those inputs by ThemeTokenHandler at load time.
+ * A theme file (resources/themes/<name>/theme.jsonc) declares five
+ * mandatory colors — `brand.primary` and four `accent.*` values.
+ * Every other token the UI consumes (Header*, Section*, Update*,
+ * Packets*, Conversation*, Expert*, …) is derived from those
+ * inputs by ThemeTokenHandler at load time.
  *
  * Stylesheets reference tokens via `wstheme(TokenName)`.  The loader
  * rewrites each occurrence to the resolved `#rrggbb` hex value at
@@ -115,7 +169,6 @@ public:
     enum ThemeToken {
         // Brand
         BrandPrimary,
-        BrandDeep,
 
         // Accent
         AccentSuccess,
@@ -178,8 +231,8 @@ public:
         FilterClear,            // clear affordance (active) (← AccentError, red)
         FilterApply,            // apply affordance          (← AccentInfo, blue)
         FilterHistory,          // recent-filters arrow, dimmed at rest (← PaletteMid);
-                                // the default theme pins the classic Tango grays
-                                // (#555753 / #d3d7cf) via theme.filter.history.
+                                // the default theme pins fixed grays
+                                // via theme.filter.history.
 
         // Syntax highlighting — foreground text colours for code- and
         // data-viewers (JSON, hex, Lua debugger, etc.).  Derived so
@@ -196,22 +249,23 @@ public:
         PaletteWindowText,
         PaletteAlternateBase,
         PaletteMid,
-        PaletteMidLight,
-        // Selection background — when omitted, builder uses brand.primary.
+        PaletteMidlight,
+        // Selection background — when omitted, the builder uses
+        // packets.selection, else brand.primary.
         PaletteHighlight,
-        // Selection foreground — when omitted, builder picks via
-        // contrastingText(brand.primary).  Themes whose brand colour
-        // sits on the WCAG luminance threshold (e.g. saturated mid-tone
-        // teals/blues where contrastingText flips to black even though
-        // white reads better) can pin this explicitly to white.
+        // Selection foreground — when omitted, the builder picks
+        // contrastingText() of the resolved highlight.  Themes whose
+        // selection colour sits on the WCAG luminance threshold (e.g.
+        // saturated mid-tone teals/blues where contrastingText flips to
+        // black even though white reads better) can pin this explicitly
+        // to white.
         PaletteHighlightedText,
 #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
         PaletteAccent,
 #endif
 
-        // Header (derived from brand)
-        HeaderGradientStart,
-        HeaderGradientEnd,
+        // Welcome header bar (derived from the palette's Highlight)
+        HeaderBackground,
 
         // Section headers (derived from brand + QPalette)
         SectionHeader,
@@ -219,26 +273,55 @@ public:
 
         // Structural form chrome — borders, dividers, muted text.
         // FieldBorder is the WCAG-enforced derivation of palette.mid
-        // against palette.base (≥ 3.0:1 ratio), used to frame
-        // interactive controls without overshooting like palette.shadow
-        // does in light mode.  Separator is a softer mix of base + mid
-        // for hairlines between cards / sections; themes can override
-        // it via the JSONC "separator" top-level key when the derived
-        // value is too pronounced (Stratoshark uses an explicit value
-        // matching its midlight).  MutedText is reserved for future
-        // use — no consumer in tree today, but kept in the enum so
-        // themes can grow into it without a binary-compat break.
+        // against palette.base (the non-text ratio of the active
+        // contrast set), used to frame interactive controls without
+        // overshooting like palette.shadow does in light mode.
+        // Separator is a softer mix of base + mid, kept the divider
+        // ratio of the active contrast set apart from base, for
+        // hairlines between sections; themes can override it via the
+        // JSONC "separator" top-level key when the derived value is too
+        // pronounced (Stratoshark uses an explicit value matching its
+        // midlight).  MutedText is a derived de-emphasized text color
+        // (palette text mixed toward base, contrast-adapted to base)
+        // for secondary labels and plot reference lines.
         FieldBorder,
         Separator,
         MutedText,
 
-        // Text on dark surfaces (derived from brand)
-        TextOnDark,
-        TextOnDarkMuted,
+        // Raised surfaces ("cards") on Base and the colors drawn on
+        // them.  In dark mode CardBackground is kept the dark card
+        // surface ratio of the active contrast set apart from Base,
+        // starting from the theme's palette.alternateBase pin or Base;
+        // in light mode it is that color unchanged.
+        // CardBorder frames it and is used for lines on it.
+        // CardSectionHeader* and CardFocusRing are the section header
+        // and focus colors re-derived to read on the card.  CardLink is
+        // the application Link in light mode (lifted only when it does
+        // not read on the card), lifted further in dark mode so that it
+        // reads on CardLinkHover at body-text contrast.  CardLinkHover
+        // is the item hover fill with the card as base, moved toward
+        // the card until CardLink reads on it (large-text contrast in
+        // light mode).  OverlayCard* is the card surface for overlays
+        // over a black scrim, such as the startup splash: the lighter of
+        // Base and CardBackground, with its own border.
+        CardBackground,
+        CardBorder,
+        CardSectionHeader,
+        CardSectionHeaderHover,
+        CardLink,
+        CardLinkHover,
+        CardFocusRing,
+        OverlayCardBackground,
+        OverlayCardBorder,
 
-        // Update bar (derived from accent.success)
-        UpdateGradientStart,
-        UpdateGradientEnd,
+        // Welcome header title and version text (derived with HeaderBackground)
+        HeaderText,
+        HeaderTextMuted,
+
+        // Update bar (derived from accent.success).  UpdateDot: the
+        // status dot, accent.success, kept non-text contrast apart
+        // from the bar in high contrast.
+        UpdateBackground,
         UpdateBorder,
         UpdateText,
         UpdateTextHighlight,
@@ -252,6 +335,7 @@ public:
         UpdateButtonDisabledText,
         UpdateDismissHoverBg,
         UpdateDismissPressedBg,
+        UpdateDot,
 
         // Accent aliases (derived)
         HighlightColorOrange,
@@ -270,17 +354,44 @@ public:
         // any enum name starting with "accent" as a required input in
         // the "accent" JSONC section (theme_manager.cpp section loop),
         // so `Accent*Text` derived tokens would make the parser demand
-        // them from every theme file.  Following the existing
-        // `TextOnDark` precedent keeps them ungrouped.
+        // them from every theme file.  The `TextOn*` prefix keeps
+        // them out of the accent section.
         TextOnSuccess,
         TextOnWarning,
         TextOnError,
         TextOnInfo,
 
+        // Foreground on the filter validity tints, derived as the
+        // contrastingText() of the matching Filter* token.  Named
+        // `TextOn*` for the same section-grouping reason as above.
+        TextOnFilterValid,
+        TextOnFilterInvalid,
+        TextOnFilterDeprecated,
+
+        // Line tints of a text diff (added, changed, removed lines) and notice
+        // banners (background and frame): palette.base tinted toward an
+        // accent, stronger in dark mode.  Derived only, not settable.
+        DiffAdded,
+        DiffChanged,
+        DiffRemoved,
+        NoticeInfo,
+        NoticeInfoBorder,
+        NoticeError,
+        NoticeErrorBorder,
+
         // None
         NoRole
     };
     Q_ENUM(ThemeToken)
+
+    /**
+     * ThemeToken enumerator named exactly @p name (case-sensitive),
+     * as written in wstheme() stylesheet references and in theme
+     * resources such as learn_card.json and SVG token maps.
+     *
+     * @return The token, or NoRole when no enumerator has that name.
+     */
+    static ThemeToken tokenFromName(const QString &name);
 
     static ThemeManager* instance();
 
@@ -345,10 +456,141 @@ public:
     static QList<ThemeInfo> availableThemes();
 
     /**
+     * True when @p internalName is a theme bundled as a resource
+     * (`:/themes/<name>/theme.jsonc` exists).
+     */
+    static bool isBuiltInTheme(const QString &internalName);
+
+    /**
+     * Directory that holds the user's personal theme files.
+     */
+    static QString personalThemesDir();
+
+    /**
+     * Path of the personal theme file `<stem>.jsonc`.
+     *
+     * @return empty when the personal themes directory is unknown.
+     */
+    static QString personalThemePath(const QString &stem);
+
+    /**
+     * Name of the theme the user selected (recent.gui_theme_name), mapped
+     * through resolveThemeName().
+     */
+    static QString selectedThemeName();
+
+    /**
+     * Stores @p name as the selected theme (recent.gui_theme_name); an empty
+     * name clears it.  It only stores the choice; the caller emits
+     * PreferencesChanged to apply it.
+     */
+    static void setSelectedThemeName(const QString &name);
+
+    /**
+     * Loads and parses a theme into an editable draft without touching the
+     * live theme state.  The built-in-then-personal lookup is the one
+     * loadTheme() uses.  The draft holds exactly what the parser stored, so
+     * entries with an invalid color are still present; see
+     * ThemeDraft::removeInvalidEntries().
+     *
+     * @param internalName  theme to load.
+     * @param out           filled on success, including info.builtIn and info.filePath.
+     * @param errorString   optional; set to the fatal error on failure.
+     * @param report        optional; receives the non-fatal parse messages.
+     * @return true on a usable parse.
+     */
+    bool loadDraft(const QString &internalName, ThemeDraft &out,
+                   QString *errorString = nullptr,
+                   ThemeParseReport *report = nullptr) const;
+
+    /**
+     * Like loadDraft(), but parses theme file content that is already in
+     * memory (for example an import candidate).
+     *
+     * @param jsonc         theme file content.
+     * @param internalName  name stored on the draft.
+     * @param out           filled on success.
+     * @param errorString   optional; set to the fatal error on failure.
+     * @param report        optional; receives the non-fatal parse messages.
+     * @return true on a usable parse.
+     */
+    bool parseDraft(const QByteArray &jsonc, const QString &internalName,
+                    ThemeDraft &out, QString *errorString = nullptr,
+                    ThemeParseReport *report = nullptr) const;
+
+    /**
+     * Resolves the complete token table of a draft for one side: the
+     * baseline palette the live theme builds on when that side is the
+     * live mode (the built-in palette of that side otherwise), the
+     * theme's palette overrides, every derived token, and every palette
+     * token pinned into the requested side when the theme leaves it out.
+     * Live application state is not touched.
+     *
+     * @param draft    the draft to resolve.
+     * @param dark     true for the dark side, false for the light side.
+     * @param palette  optional; receives the palette built for that side.
+     * @param sources  optional; receives the rule text of every derived
+     *                 token, see ThemeTokenHandler::deriveAll().
+     * @param gui_contrast  gui_contrast_e value to resolve with, combined
+     *                 with the draft's declared level by effectiveContrast().
+     *                 The default UseRecentContrast reads recent.gui_contrast,
+     *                 the level the live theme is applied with.
+     * @return token to color pair; only the requested side is guaranteed
+     *         to be filled for derived tokens.
+     */
+    QHash<ThemeToken, ThemeColorPair> resolveDraftTokens(const ThemeDraft &draft,
+                                                         bool dark,
+                                                         QPalette *palette = nullptr,
+                                                         QHash<ThemeToken, const char *> *sources = nullptr,
+                                                         int gui_contrast = UseRecentContrast) const;
+
+    /**
+     * The Palette<Role> token of @p role.
+     *
+     * @return the token, NoRole when the role has none.
+     */
+    ThemeToken paletteRoleToken(QPalette::ColorRole role) const;
+
+    /**
+     * The token a rule text or theme key names, such as `palette.highlight`
+     * or `HeaderText`, by the same name rule as the theme files.
+     *
+     * @return the token, NoRole when the name is not a token.
+     */
+    ThemeToken tokenForName(const QString &name) const;
+
+    /**
+     * Picks one side of every pair of a resolved token table.
+     */
+    static QHash<ThemeToken, QColor> flattenTokens(const QHash<ThemeToken, ThemeColorPair> &tokens,
+                                                   bool dark);
+
+    /**
+     * Every token of a section the parser requires (sections_ entries
+     * flagged required), in enum order.  A theme must set all of them.
+     */
+    const QList<ThemeToken> &requiredTokens() const { return requiredTokens_; }
+
+    /** One color key a theme file can set. */
+    struct SettableKey {
+        ThemeToken token;
+        QString    section; ///< section name as written in the file
+        QString    key;     ///< key name as written in the file (schema spelling)
+    };
+
+    /**
+     * Every token a theme file can set, in enum order.  Section and key are
+     * derived from the enumerator name: the sections_ name it starts with,
+     * then the rest with its first letter lowered
+     * (PacketsSelectionText -> packets.selectionText).
+     */
+    const QList<SettableKey> &settableKeys() const { return settableKeys_; }
+
+    /**
      * Returns the resolved color value for a given ThemeToken in
      * the current light/dark mode.
      *
-     * @param role  The ThemeToken enum value, e.g. ThemeManager::HeaderGradientStart
+     * @param role  The ThemeToken enum value, e.g. ThemeManager::HeaderBackground
      * @return The color defined for the role in the current mode, or an invalid QColor if
      *         the role is not defined.
      */
@@ -377,10 +619,23 @@ public:
      *                      tracks the live system preference; the
      *                      Prefer* variants pin the side regardless of
      *                      the live mode or OS.
+     * @param gui_contrast  gui_contrast_e value to preview, resolved with
+     *                      effectiveContrast() against the theme's declared
+     *                      level.  The default UseRecentContrast reads
+     *                      recent.gui_contrast, so a caller that does not
+     *                      pass it previews the saved setting.
+     * @param declaresWindow  if not null, set to whether the theme itself
+     *                      declares palette.window: the test
+     *                      colorIsAvailable(PaletteWindow) makes for the
+     *                      applied theme.  False when the theme cannot be
+     *                      loaded.  The returned hash always carries
+     *                      PaletteWindow, so it cannot answer this.
      * @return token → resolved QColor for the requested mode.
      */
     QHash<ThemeToken, QColor> previewTheme(const QString &internalName,
-                                           PreviewScheme scheme) const;
+                                           PreviewScheme scheme,
+                                           int gui_contrast = UseRecentContrast,
+                                           bool *declaresWindow = nullptr) const;
 
     /**
      * Runs ThemeParser on @p filePath and returns true if it produces a
@@ -403,6 +658,12 @@ public:
      * tree and replaces all `wstheme(TokenName)` references with their
      * resolved color values.  Thin delegator; see
      * `ThemeStyleSheetLoader::load()` for the full semantics.
+     *
+     * The result is scaled by the current text zoom: font sizes (px and
+     * pt in `font` / `font-size`) and every other `Npx` length greater
+     * than 1 (heights, radii, padding, margins, sizes) grow with
+     * FontManager::zoomFactor().  `0px` and `1px`, comments and `url()`
+     * are left alone, and zoom level 0 returns the text unchanged.
      *
      * The stylesheet is always looked up under :/stylesheets/, with a
      * ".qss" extension automatically appended.  The name is sanitized
@@ -445,6 +706,14 @@ public:
      * `"invalid"`, and `"deprecated"` — see application.qss.
      */
     static void setValidationState(QWidget *w, const QString &state);
+
+    /**
+     * Sets the wsNotice property ("info", "error", or empty to clear)
+     * that application.qss styles as a notice banner, and repolishes,
+     * including the frame widths, so the rule's border and padding move the
+     * text in from the frame.
+     */
+    static void setNoticeState(QWidget *w, const QString &state);
 
     /** Convenience shortcut for ThemeManager::instance()->isDarkMode().
      *
@@ -492,6 +761,43 @@ public:
     void setMode(ThemeMode mode);
 
     /**
+     * Contrast level the current theme was applied with: the result of
+     * effectiveContrast() for recent.gui_contrast and the theme's
+     * declared level at the last apply.
+     */
+    ThemeContrast contrast() const;
+
+    /**
+     * True when this build can read the OS contrast preference, i.e. it
+     * was built with Qt 6.10 or later.  Below that the System contrast
+     * setting acts as Standard.
+     */
+    static bool canDetectSystemContrast();
+
+    /**
+     * True when the OS reports a high-contrast preference.  Always false
+     * when canDetectSystemContrast() is false.
+     */
+    static bool systemPrefersHighContrast();
+
+    /**
+     * Resolves the contrast level to apply.  High when the theme declares
+     * high contrast, when @p gui_contrast is GUI_CONTRAST_HIGH, or when it
+     * is GUI_CONTRAST_SYSTEM and the OS prefers high contrast; Standard
+     * otherwise.
+     *
+     * @param gui_contrast  a gui_contrast_e value (ui/recent.h).
+     * @param declared      the level the theme file declares.
+     */
+    static ThemeContrast effectiveContrast(int gui_contrast, ThemeContrast declared);
+
+    /**
+     * previewTheme() argument meaning "preview the saved contrast setting
+     * (recent.gui_contrast)".  Not a gui_contrast_e value.
+     */
+    static constexpr int UseRecentContrast = -1;
+
+    /**
      * @brief Returns the graph color for the given index, cycling through available graph colors if necessary.
      *
      * NOTE: if no graph colors are defined, this will return an invalid QColor.
@@ -502,8 +808,6 @@ public:
      * @return QColor
      */
     QColor graphColor(int idx) const;
-
-    QColor graphDefaultColor() const;
 
     /**
      * @brief Returns the number of graph colors defined in the theme.
@@ -527,9 +831,13 @@ private:
 
     // Flattened token -> color value, one map per mode
     QHash<ThemeManager::ThemeToken, ThemeColorPair> themeColors_;
+    /** Token map of the loaded theme as parsed, before derivation. */
+    QHash<ThemeManager::ThemeToken, ThemeColorPair> parsedColors_;
     QList<ThemeColorPair> graphColors_;
 
     QHash<QString, ThemeSectionInfo> sections_;
+    QList<ThemeToken> requiredTokens_;
+    QList<SettableKey> settableKeys_;
 
     // mapping caches for role and palette resolution
     QHash<QString, ThemeToken> colorRoleCache_;
@@ -543,12 +851,18 @@ private:
     ThemeMode mode_ = ThemeMode::System;
     SystemThemeDetector *detector_ = nullptr;
 
+    // Contrast level of the last apply; compared against a fresh
+    // effectiveContrast() when the OS contrast preference changes.
+    ThemeContrast contrast_ = ThemeContrast::Standard;
+
     // Pristine OS palette snapshot used as the baseline when the palette
     // builder constructs a new theme palette.  Captured once at ctor
     // entry (before any setPalette() call could pollute QApplication's
-    // live palette), and refreshed from `qApp->style()->standardPalette()`
-    // whenever the effective light/dark scheme changes (mode flip or OS
-    // notification).  Using this snapshot instead of
+    // live palette), and refreshed whenever the effective light/dark
+    // scheme changes (mode flip or OS notification): on macOS by dropping
+    // the application palette and reading back the platform palette Qt
+    // resolves, on Windows (Qt ≥ 6.8) from
+    // `qApp->style()->standardPalette()`.  Using this snapshot instead of
     // QApplication::palette() prevents the previous theme's palette
     // overrides from leaking into the next theme's baseline — without it,
     // switching from a theme with palette overrides (e.g. "inverted") to
@@ -578,6 +892,16 @@ private:
     void reapplyForSchemeChange();
 
     /**
+     * Resolves the effective contrast level and makes it the active
+     * ColorMath ratio set, re-derives the token table from the parsed
+     * theme for the current mode, pushes the palette and the application
+     * stylesheet, and emits themeChanged.  The shared tail of loadTheme()
+     * and reapplyForSchemeChange(); also run when the OS contrast
+     * preference changes the effective level.
+     */
+    void applyTheme();
+
+    /**
      * Maps recent.gui_color_scheme (COLOR_SCHEME_DEFAULT / _LIGHT /
      * _DARK) to ThemeMode.  Defined in the .cpp to keep prefs.h out
      * of this header.
@@ -596,7 +920,9 @@ private:
      * Loads `:/stylesheets/application.qss`, resolves its wstheme(...)
      * tokens against the current palette, and pushes the result onto
      * qApp via setStyleSheet().  Invoked on every theme/mode flip so
-     * the global rules stay in sync with the active mode.
+     * the global rules stay in sync with the active mode.  The sheet is
+     * not scaled by the zoom factor and a zoom step does not re-apply it,
+     * so it must not hold font sizes or lengths that should zoom.
      */
     void applyApplicationStyleSheet();
 
@@ -615,4 +941,51 @@ private:
      */
     bool loadTheme(const QString &themeName = QString());
 
+};
+
+/**
+ * An editable copy of a theme file.  Holds the inputs a theme file can
+ * carry (including Separator), not derived tokens.
+ */
+struct ThemeDraft {
+    ThemeInfo info;                                            ///< Meta data and origin
+    QHash<ThemeManager::ThemeToken, ThemeColorPair> colors;    ///< JSONC color inputs
+    QList<ThemeColorPair> graphColors;                         ///< Graph colors in order
+    ThemeFontHint regularFont;                                 ///< Regular font the theme asks for
+    ThemeFontHint monospaceFont;                               ///< Monospace font the theme asks for
+
+    /** The tokens every theme must define: ThemeManager::requiredTokens(). */
+    static const QList<ThemeManager::ThemeToken> &requiredTokens();
+
+    /** First required token that is missing or not a valid color; NoRole when none. */
+    ThemeManager::ThemeToken firstMissingRequired() const;
+
+    /** True when every requiredTokens() color is present and valid. */
+    bool hasRequiredColors() const;
+
+    /**
+     * True when the theme itself sets palette.window, the test that decides
+     * whether title bars (NativeTitleBar) and theme previews take the
+     * window color.
+     */
+    bool declaresWindow() const;
+
+    /** True when the color set and the graph colors equal those of @p other. */
+    bool sameColors(const ThemeDraft &other) const;
+
+    /**
+     * Removes color entries (and Separator) and graph slots whose light or
+     * dark side is not a valid color.
+     *
+     * @return number of entries and slots removed.
+     */
+    int removeInvalidEntries();
+
+    /**
+     * Compares meta name, author and description, the color set (keys and
+     * RGBA per side), the graph list and the font hints.  Origin
+     * (builtIn, filePath, internalName) is ignored.
+     */
+    bool operator==(const ThemeDraft &other) const;
+    bool operator!=(const ThemeDraft &other) const { return !(*this == other); }
 };

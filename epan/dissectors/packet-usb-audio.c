@@ -18,6 +18,7 @@
 #include <epan/packet.h>
 #include <epan/expert.h>
 #include <epan/reassemble.h>
+#include "packet-midi.h"
 #include "packet-usb.h"
 
 /* XXX - we use the same macro for mpeg sections,
@@ -1012,9 +1013,12 @@ dissect_usb_midi_event(tvbuff_t *tvb, packet_info *pinfo,
         padding_size = 3 - event_size;
         if (event_size > 0)
         {
-            /* TODO: Create MIDI dissector and pass the event data to it */
-            const uint8_t *event_data = tvb_get_ptr(tvb, offset+1, event_size);
-            proto_tree_add_bytes(tree, hf_midi_event, tvb, offset+1, event_size, event_data);
+            if (is_sysex_code(code)) {
+                proto_tree_add_item(tree, hf_midi_event, tvb, offset+1, event_size, ENC_NA);
+            } else {
+                tvbuff_t* midi_tvb = tvb_new_subset_length(tvb, offset+1, event_size);
+                dissect_midi1_message(midi_tvb, pinfo, tree, 0, NULL, true);
+            }
         }
         if (padding_size > 0)
         {
@@ -2182,7 +2186,7 @@ dissect_ms_if_midi_element_body(tvbuff_t *tvb, int offset, packet_info *pinfo _U
 {
     int         offset_start = offset;
     proto_tree *bitmap_tree;
-    proto_item *ti;
+    proto_item *ti = NULL;
     uint8_t     nrinputpins;
     unsigned    elcapssize;
 
@@ -2622,10 +2626,12 @@ dissect_v1_control(tvbuff_t *tvb, int offset, packet_info *pinfo,
     }
 
     if (has_data_stage(urb)) {
-        proto_tree  *subtree;
+        proto_tree  *subtree, *data_tree;
         proto_item  *subtree_item;
 
-        subtree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_parameter_block, &subtree_item, title);
+        /* always put the data stage after the setup stage (if any), not inside it */
+        data_tree = urb->is_request ? proto_tree_get_parent_tree(tree) : tree;
+        subtree = proto_tree_add_subtree(data_tree, tvb, offset, -1, ett_parameter_block, &subtree_item, title);
 
         if (parameter_hf) {
             proto_tree_add_item(subtree, *parameter_hf, tvb, offset, attribute_size, ENC_LITTLE_ENDIAN);
@@ -2727,7 +2733,7 @@ dissect_v2_control_cur_range(tvbuff_t *tvb, int offset, packet_info *pinfo,
     }
 
     if (has_data_stage(urb)) {
-        proto_tree  *subtree;
+        proto_tree  *subtree, *data_tree;
         proto_item  *subtree_item;
         const char *title;
         uint32_t     n;
@@ -2772,7 +2778,9 @@ dissect_v2_control_cur_range(tvbuff_t *tvb, int offset, packet_info *pinfo,
                 break;
         }
 
-        subtree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_parameter_block, &subtree_item, title);
+        /* always put the data stage after the setup stage (if any), not inside it */
+        data_tree = urb->is_request ? proto_tree_get_parent_tree(tree) : tree;
+        subtree = proto_tree_add_subtree(data_tree, tvb, offset, -1, ett_parameter_block, &subtree_item, title);
         if (parameter_str) {
             proto_item_append_text(subtree_item, ": %s", parameter_str);
         }
@@ -2921,7 +2929,7 @@ dissect_usb_audio_bulk(tvbuff_t *tvb, packet_info *pinfo, proto_tree *parent_tre
     switch (urb->conv->interfaceSubclass)
     {
         case AUDIO_IF_SUBCLASS_MIDISTREAMING:
-            col_set_str(pinfo->cinfo, COL_INFO, "USB-MIDI Event Packets");
+            col_set_str(pinfo->cinfo, COL_INFO, "USB-MIDI Event Packets: ");
 
             for (i = 0; i < length / 4; i++)
             {

@@ -60,6 +60,7 @@ DIAG_ON(frame-larger-than=)
 #include "interface_toolbar.h"
 #include "packet_list.h"
 #include <ui/qt/widgets/packet_list_pane.h>
+#include "preferences_dialog.h"
 #include "proto_tree.h"
 #include "simple_dialog.h"
 #include "tap_parameter_dialog.h"
@@ -70,6 +71,7 @@ DIAG_ON(frame-larger-than=)
 
 #include <ui/qt/utils/color_utils.h>
 #include <ui/qt/utils/font_manager.h>
+#include <ui/qt/utils/zoom_scaling.h>
 #include <ui/qt/utils/profile_switcher.h>
 #include <ui/qt/utils/qt_ui_utils.h>
 #include <ui/qt/utils/themes/contrast_adapt_icon.h>
@@ -378,6 +380,10 @@ StratosharkMainWindow::StratosharkMainWindow(QWidget *parent) :
             << REGISTER_TOOLS_GROUP_UNSORTED;
 
     setWindowIcon(mainApp->normalIcon());
+    // The Website and Wiki help items lead to the project's own pages, so they carry
+    // the application icon.
+    main_ui_->actionHelpWebsite->setIcon(mainApp->normalIcon());
+    main_ui_->actionHelpWiki->setIcon(mainApp->normalIcon());
     updateTitlebar();
     setMenusForCaptureFile();
     setForCapturedPackets(false);
@@ -461,22 +467,33 @@ StratosharkMainWindow::StratosharkMainWindow(QWidget *parent) :
 #endif
 
     // Set OS specific shortcuts for fullscreen mode
-#if defined(Q_OS_MAC)
+#if defined(Q_OS_MACOS)
     main_ui_->actionViewFullScreen->setShortcut(QKeySequence::FullScreen);
 #else
     main_ui_->actionViewFullScreen->setShortcut(QKeySequence(Qt::Key_F11));
 #endif
 
-#if defined(Q_OS_MAC)
+    // Ctrl+= zooms in as well, so the user does not need Shift on
+    // keyboards where '+' shares a key with '='. Set once here: the
+    // palette change handler re-runs initMainToolbarIcons(), and
+    // appending there would duplicate the sequence and make it ambiguous.
+    QList<QKeySequence> zi_seq = main_ui_->actionViewZoomIn->shortcuts();
+    zi_seq << QKeySequence(Qt::CTRL | Qt::Key_Equal);
+    main_ui_->actionViewZoomIn->setShortcuts(zi_seq);
 
-    main_ui_->goToPacketLabel->setAttribute(Qt::WA_MacSmallSize, true);
-    main_ui_->goToLineEdit->setAttribute(Qt::WA_MacSmallSize, true);
-    main_ui_->goToGo->setAttribute(Qt::WA_MacSmallSize, true);
-    main_ui_->goToCancel->setAttribute(Qt::WA_MacSmallSize, true);
+#if defined(Q_OS_MACOS)
+
+    ZoomScaling::scaleMacControlSize(main_ui_->goToPacketLabel);
+    ZoomScaling::scaleMacControlSize(main_ui_->goToLineEdit);
+    ZoomScaling::scaleMacControlSize(main_ui_->goToGo);
+    ZoomScaling::scaleMacControlSize(main_ui_->goToCancel);
 
     main_ui_->actionEditPreferences->setMenuRole(QAction::PreferencesRole);
 
-#endif // Q_OS_MAC
+#endif // Q_OS_MACOS
+
+    ZoomScaling::scaleSizeLimits(main_ui_->goToGo);
+    ZoomScaling::scaleSizeLimits(main_ui_->goToCancel);
 
     connect(main_ui_->goToGo, &QPushButton::pressed, this, &StratosharkMainWindow::goToGoClicked);
     connect(main_ui_->goToCancel, &QPushButton::pressed, this, &StratosharkMainWindow::goToCancelClicked);
@@ -632,6 +649,12 @@ StratosharkMainWindow::StratosharkMainWindow(QWidget *parent) :
     connect(proto_tree_, &ProtoTree::showProtocolPreferences, this, &StratosharkMainWindow::showPreferencesDialog);
     connect(proto_tree_, SIGNAL(editProtocolPreference(pref_t*,module_t*)),
             main_ui_->preferenceEditorFrame, SLOT(editPreference(pref_t*,module_t*)));
+    connect(proto_tree_, &ProtoTree::recolorPacketsRequested,
+            packet_list_, &PacketList::recolorPackets);
+    connect(proto_tree_, &ProtoTree::redissectPacketsRequested,
+            this, &StratosharkMainWindow::redissectPackets);
+    connect(proto_tree_, &ProtoTree::showDistributionDialog,
+            this, &MainWindow::showDistributionDialog);
 
     connect(main_ui_->statusBar, &MainStatusBar::showExpertInfo, this, [=]() {
         statCommandExpertInfo(NULL, NULL);
@@ -691,6 +714,7 @@ StratosharkMainWindow::StratosharkMainWindow(QWidget *parent) :
     main_ui_->actionHelpContents->setToolTip(gchar_free_to_qstring(topic_action_url(HELP_CONTENT)));
     main_ui_->actionHelpWebsite->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_STRATOSHARK_HOME)));
     main_ui_->actionHelpFAQ->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_FAQ)));
+    main_ui_->actionHelpDiscord->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_DISCORD)));
     main_ui_->actionHelpAsk->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_ASK)));
     main_ui_->actionHelpDownloads->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_STRATOSHARK_DOWNLOAD)));
     main_ui_->actionHelpWiki->setToolTip(gchar_free_to_qstring(topic_action_url(ONLINEPAGE_STRATOSHARK_WIKI)));
@@ -706,8 +730,13 @@ StratosharkMainWindow::~StratosharkMainWindow()
     if (previous_focus_ != nullptr) {
         disconnect(previous_focus_, &QWidget::destroyed, this, &StratosharkMainWindow::resetPreviousFocus);
     }
+    if (preferences_dialog_) {
+        // The dialog is a child of this window and is deleted after our
+        // members, so its destroyed() handler must not touch them.
+        disconnect(preferences_dialog_, nullptr, this, nullptr);
+    }
 
-#ifndef Q_OS_MAC
+#ifndef Q_OS_MACOS
     // Below dialogs inherit GeometryStateDialog
     // For reasons described in geometry_state_dialog.h no parent is set when
     // instantiating the dialogs and as a result objects are not automatically
@@ -832,7 +861,7 @@ void StratosharkMainWindow::updateStyleSheet()
     // palette (generally whether the theme is dark or not.) Some of these
     // widgets only have style sheets that vary with whether theme is dark
     // on macOS. (XXX - We could just update them all anyway.)
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     main_ui_->addressEditorFrame->updateStyleSheet();
     main_ui_->columnEditorFrame->updateStyleSheet();
     main_ui_->filterExpressionFrame->updateStyleSheet();
@@ -1065,7 +1094,7 @@ void StratosharkMainWindow::loadWindowGeometry()
 {
     int min_sensible_dimension = 200;
 
-#ifndef Q_OS_MAC
+#ifndef Q_OS_MACOS
     if (recent.gui_geometry_main_maximized) {
         // [save|restore]Geometry does a better job (on Linux and Windows)
         // of restoring to the original monitor because it saves
@@ -1818,7 +1847,6 @@ bool StratosharkMainWindow::tryClosingCaptureFile(QString before_what, FileClose
             msg_dialog.setText(question);
             msg_dialog.setInformativeText(infotext);
 
-            // XXX Text comes from ui/gtk/stock_icons.[ch]
             // Note that the button roles differ from the GTK+ version.
             // Cancel = RejectRole
             // Save = AcceptRole
@@ -1864,7 +1892,7 @@ bool StratosharkMainWindow::tryClosingCaptureFile(QString before_what, FileClose
             }
             discard_button = msg_dialog.addButton(discard_button_text, QMessageBox::DestructiveRole);
 
-#if defined(Q_OS_MAC)
+#if defined(Q_OS_MACOS)
             /*
              * In macOS, the "default button" is not necessarily the
              * button that has the input focus; Enter/Return activates
@@ -1982,8 +2010,9 @@ void StratosharkMainWindow::captureStop() {
 }
 
 // Toolbar icons scale with the application zoom level (see the matching comment
-// in WiresharkMainWindow): the toolbar, as consumer, re-sizes on zoomChanged
-// rather than the icon scaling itself.
+// in WiresharkMainWindow): the main and display filter toolbars, as consumers,
+// re-size on zoomChanged rather than the icon scaling itself.  The display
+// filter toolbar shares its icon size with the status bar icons.
 void StratosharkMainWindow::updateMainToolbarIconSize()
 {
     // Normally 16 px. Reflects current GTK+ behavior and other Windows apps.
@@ -1994,8 +2023,10 @@ void StratosharkMainWindow::updateMainToolbarIconSize()
     // large IMHO.
     icon_size = icon_size * 3 / 2;
 #endif
-    icon_size = qRound(icon_size * FontManager::zoomFactor());
     main_ui_->mainToolBar->setIconSize(QSize(icon_size, icon_size));
+
+    const int filter_icon_size = ZoomScaling::barIconSize();
+    main_ui_->displayFilterToolBar->setIconSize(QSize(filter_icon_size, filter_icon_size));
 }
 
 void StratosharkMainWindow::initMainToolbarIcons()
@@ -2031,7 +2062,7 @@ void StratosharkMainWindow::initMainToolbarIcons()
     main_ui_->actionGoLastPacket->setIcon(ThemedIcon("nav-last"));
     main_ui_->actionGoPreviousConversationPacket->setIcon(ThemedIcon("nav-previous"));
     main_ui_->actionGoNextConversationPacket->setIcon(ThemedIcon("nav-next"));
-#if defined(Q_OS_MAC)
+#if defined(Q_OS_MACOS)
     main_ui_->actionGoPreviousConversationPacket->setShortcut(QKeySequence(Qt::META | Qt::Key_Comma));
     main_ui_->actionGoNextConversationPacket->setShortcut(QKeySequence(Qt::META | Qt::Key_Period));
 #endif
@@ -2043,10 +2074,7 @@ void StratosharkMainWindow::initMainToolbarIcons()
 
     main_ui_->actionViewColorizePacketList->setIcon(ContrastAdaptIcon("view-colorize"));
 
-    QList<QKeySequence> zi_seq = main_ui_->actionViewZoomIn->shortcuts();
-    zi_seq << QKeySequence(Qt::CTRL | Qt::Key_Equal);
     main_ui_->actionViewZoomIn->setIcon(ThemedIcon("zoom-in"));
-    main_ui_->actionViewZoomIn->setShortcuts(zi_seq);
     main_ui_->actionViewZoomOut->setIcon(ThemedIcon("zoom-out"));
     main_ui_->actionViewNormalSize->setIcon(ThemedIcon("zoom-reset"));
     main_ui_->actionViewResizeColumns->setIcon(ThemedIcon("view-resize-columns"));

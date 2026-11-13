@@ -263,6 +263,7 @@ struct _report_descriptor {
     uint16_t                bus_id;
     uint16_t                device_address;
     uint8_t                 interface;
+    uint32_t                frame_num;
 
     int                     desc_length;
     uint8_t                *desc_body;
@@ -4491,7 +4492,7 @@ dissect_usb_hid_report_item(packet_info *pinfo _U_, proto_tree *parent_tree, tvb
 
 /* Dissector for HID "GET DESCRIPTOR" subtype. */
 int
-dissect_usb_hid_get_report_descriptor(packet_info *pinfo _U_, proto_tree *parent_tree, tvbuff_t *tvb, int offset, urb_info_t *urb)
+dissect_usb_hid_get_report_descriptor(packet_info *pinfo, proto_tree *parent_tree, tvbuff_t *tvb, int offset, urb_info_t *urb)
 {
     proto_item *item;
     proto_tree *tree;
@@ -4513,6 +4514,7 @@ dissect_usb_hid_get_report_descriptor(packet_info *pinfo _U_, proto_tree *parent
         data->bus_id = urb->bus_id;
         data->device_address = urb->device_address;
         data->interface = urb->conv->interfaceNum;
+        data->frame_num = pinfo->num;
         data->desc_length = offset - old_offset;
         data->desc_body = (uint8_t*) tvb_memdup(scope, tvb, old_offset, data->desc_length);
 
@@ -4532,16 +4534,16 @@ dissect_usb_hid_get_report_descriptor(packet_info *pinfo _U_, proto_tree *parent
 static int dissect_usb_hid_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data);
 
 /* Dissector for HID GET_REPORT request. See USBHID 1.11, Chapter 7.2.1 Get_Report Request */
-static void
+static int
 dissect_usb_hid_get_report(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset, bool is_request, urb_info_t *urb)
 {
     proto_item *item;
     proto_tree *subtree;
 
     if (!is_request) {
-        dissect_usb_hid_data(tvb_new_subset_remaining(tvb, offset), pinfo, tree, urb);
+        offset += dissect_usb_hid_data(tvb_new_subset_remaining(tvb, offset), pinfo, tree, urb);
 
-        return;
+        return offset;
     }
 
     item = proto_tree_add_item(tree, hf_usb_hid_value, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -4557,18 +4559,20 @@ dissect_usb_hid_get_report(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, 
     offset += 2;
 
     proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    /*offset += 2;*/
+    offset += 2;
+
+    return offset;
 }
 
 /* Dissector for HID SET_REPORT request. See USBHID 1.11, Chapter 7.2.2 Set_Report Request */
-static void
+static int
 dissect_usb_hid_set_report(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset, bool is_request, urb_info_t *urb)
 {
     proto_item *item;
     proto_tree *subtree;
 
     if (!is_request)
-        return;
+        return offset;
 
     item = proto_tree_add_item(tree, hf_usb_hid_value, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     subtree = proto_item_add_subtree(item, ett_usb_hid_wValue);
@@ -4584,12 +4588,15 @@ dissect_usb_hid_set_report(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, 
     proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     offset += 2;
 
-    offset += dissect_usb_hid_data(tvb_new_subset_remaining(tvb, offset), pinfo, tree, urb);
+    offset += dissect_usb_hid_data(tvb_new_subset_remaining(tvb, offset), pinfo,
+        proto_tree_get_parent_tree(tree), urb);
+
+    return offset;
 }
 
 
 /* Dissector for HID GET_IDLE request. See USBHID 1.11, Chapter 7.2.3 Get_Idle Request */
-static void
+static int
 dissect_usb_hid_get_idle(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, int offset, bool is_request, urb_info_t *urb _U_)
 {
     proto_item *item;
@@ -4597,8 +4604,9 @@ dissect_usb_hid_get_idle(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb
 
     if (!is_request) {
         proto_tree_add_item(tree, hf_usb_hid_duration, tvb, offset, 1, ENC_LITTLE_ENDIAN);
+        offset++;
 
-        return;
+        return offset;
     }
 
     item = proto_tree_add_item(tree, hf_usb_hid_value, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -4613,18 +4621,20 @@ dissect_usb_hid_get_idle(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb
     offset += 2;
 
     proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    /*offset += 2;*/
+    offset += 2;
+
+    return offset;
 }
 
 /* Dissector for HID SET_IDLE request. See USBHID 1.11, Chapter 7.2.4 Set_Idle Request */
-static void
+static int
 dissect_usb_hid_set_idle(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, int offset, bool is_request, urb_info_t *urb _U_)
 {
     proto_item *item;
     proto_tree *subtree;
 
     if (!is_request)
-        return;
+        return offset;
 
     item = proto_tree_add_item(tree, hf_usb_hid_value, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     subtree = proto_item_add_subtree(item, ett_usb_hid_wValue);
@@ -4639,18 +4649,20 @@ dissect_usb_hid_set_idle(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb
     offset += 2;
 
     proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    /*offset += 2;*/
+    offset += 2;
+
+    return offset;
 }
 
 /* Dissector for HID GET_PROTOCOL request. See USBHID 1.11, Chapter 7.2.5 Get_Protocol Request */
-static void
+static int
 dissect_usb_hid_get_protocol(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, int offset, bool is_request, urb_info_t *urb _U_)
 {
     if (!is_request) {
         proto_tree_add_item(tree, hf_usb_hid_protocol, tvb, offset, 1, ENC_LITTLE_ENDIAN);
         offset++;
 
-        return;
+        return offset;
     }
 
     proto_tree_add_item(tree, hf_usb_hid_value, tvb, offset, 2, ENC_LITTLE_ENDIAN);
@@ -4660,18 +4672,20 @@ dissect_usb_hid_get_protocol(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t 
     offset += 2;
 
     proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    /*offset += 2;*/
+    offset += 2;
+
+    return offset;
 }
 
 /* Dissector for HID SET_PROTOCOL request. See USBHID 1.11, Chapter 7.2.6 Set_Protocol Request */
-static void
+static int
 dissect_usb_hid_set_protocol(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t *tvb, int offset, bool is_request, urb_info_t *urb _U_)
 {
     proto_item *item;
     proto_tree *subtree;
 
     if (!is_request)
-        return;
+        return offset;
 
     item = proto_tree_add_item(tree, hf_usb_hid_value, tvb, offset, 2, ENC_LITTLE_ENDIAN);
     subtree = proto_item_add_subtree(item, ett_usb_hid_wValue);
@@ -4683,11 +4697,13 @@ dissect_usb_hid_set_protocol(packet_info *pinfo _U_, proto_tree *tree, tvbuff_t 
     offset += 2;
 
     proto_tree_add_item(tree, hf_usb_hid_length, tvb, offset, 2, ENC_LITTLE_ENDIAN);
-    /*offset += 2;*/
+    offset += 2;
+
+    return offset;
 }
 
 
-typedef void (*usb_setup_dissector)(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset, bool is_request, urb_info_t *urb);
+typedef int (*usb_setup_dissector)(packet_info *pinfo, proto_tree *tree, tvbuff_t *tvb, int offset, bool is_request, urb_info_t *urb);
 
 typedef struct _usb_setup_dissector_table_t {
     uint8_t request;
@@ -5114,8 +5130,9 @@ dissect_usb_hid_control_class_intf(tvbuff_t *tvb, packet_info *pinfo,
         offset += 1;
     }
 
-    dissector(pinfo, tree, tvb, offset, is_request, urb);
-    return tvb_captured_length(tvb);
+    offset = dissector(pinfo, tree, tvb, offset, is_request, urb);
+
+    return offset;
 }
 
 /* unpack a HID logical report field */
@@ -5390,10 +5407,12 @@ dissect_usb_hid_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
         hid_ti = proto_tree_add_item(tree, hf_usbhid_data, tvb, offset, -1, ENC_NA);
         hid_tree = proto_item_add_subtree(hid_ti, ett_usb_hid_data);
         hid_bit_offset = offset * 8;
-        offset += remaining;
         uint8_t report_id = tvb_get_bits8(tvb, hid_bit_offset, 8);
 
         if (rdesc) {
+            if (pinfo->fd) {
+                mark_frame_as_depended_upon(pinfo->fd, rdesc->frame_num);
+            }
             if (rdesc->uses_report_id) {
                 proto_tree_add_item(hid_tree, hf_usbhid_report_id, tvb, hid_bit_offset / 8, 1, ENC_NA);
                 hid_bit_offset += 8;
@@ -5427,6 +5446,9 @@ dissect_usb_hid_data(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *
 
                 hid_bit_offset += dissect_hid_field(tvb, pinfo, hid_tree, field, hid_bit_offset);
             }
+
+            offset = (hid_bit_offset + 7) / 8;
+            proto_item_set_len(hid_ti, offset);
         }
     }
 
@@ -5753,7 +5775,7 @@ proto_register_usb_hid(void)
                 NULL, 0x0, NULL, HFILL }},
 
         { &hf_usb_hid_protocol,
-            { "Protocol", "usbhid.setup.Protocol", FT_UINT8, BASE_HEX,
+            { "Protocol", "usbhid.setup.Protocol", FT_UINT16, BASE_HEX,
                 VALS(setup_protocol_vals), 0x0, NULL, HFILL }},
 
         /* components of the HID descriptor */

@@ -26,6 +26,8 @@
 #include "main_status_bar.h"
 #include "profile_dialog.h"
 #include <ui/qt/utils/color_utils.h>
+#include <ui/qt/utils/font_manager.h>
+#include <ui/qt/utils/zoom_scaling.h>
 #include <ui/qt/utils/themes/contrast_adapt_icon.h>
 #include <ui/qt/utils/themes/themed_icon.h>
 #include <ui/qt/capture_file.h>
@@ -79,8 +81,6 @@ packets_bar_update(void)
     cur_main_status_bar_->updateCaptureStatistics(NULL);
 }
 
-static const int icon_size = 14; // px
-
 MainStatusBar::MainStatusBar(QWidget *parent) :
     QStatusBar(parent),
     cap_file_(NULL),
@@ -89,7 +89,7 @@ MainStatusBar::MainStatusBar(QWidget *parent) :
 {
     QSplitter *splitter = new QSplitter(this);
     QWidget *info_progress = new QWidget(this);
-    QHBoxLayout *info_progress_hb = new QHBoxLayout(info_progress);
+    info_progress_hb_ = new QHBoxLayout(info_progress);
 
 #if defined(Q_OS_WIN)
     // Handles are the same color as widgets, at least on Windows 7.
@@ -102,7 +102,7 @@ MainStatusBar::MainStatusBar(QWidget *parent) :
                                 ));
 #endif
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     profile_status_.setAttribute(Qt::WA_MacSmallSize, true);
 #endif
 
@@ -120,7 +120,6 @@ MainStatusBar::MainStatusBar(QWidget *parent) :
             "}";
 
     expert_button_ = new QToolButton(this);
-    expert_button_->setIconSize(QSize(icon_size, icon_size));
     expert_button_->setStyleSheet(button_ss);
     expert_button_->setAccessibleName(tr("Expert information"));
     expert_button_->setAccessibleDescription(tr("Opens the expert information dialog, showing errors, warnings, and other relevant information about the capture."));
@@ -131,7 +130,6 @@ MainStatusBar::MainStatusBar(QWidget *parent) :
     ThemedIcon comment_icon(QStringLiteral(":/svg_icons/capture-comment.svg"), ThemeManager::PaletteText);
     comment_button_ = new QToolButton(this);
     comment_button_->setIcon(comment_icon);
-    comment_button_->setIconSize(QSize(icon_size, icon_size));
     comment_button_->setStyleSheet(button_ss);
     comment_button_->setAccessibleName(tr("Capture comment"));
     comment_button_->setAccessibleDescription(tr("Opens the Capture File Properties dialog to view or edit capture-level comments."));
@@ -141,18 +139,19 @@ MainStatusBar::MainStatusBar(QWidget *parent) :
     connect(expert_button_, &QToolButton::clicked, this, &MainStatusBar::showExpertInfo);
     connect(comment_button_, &QToolButton::clicked, this, &MainStatusBar::editCaptureComment);
 
-    info_progress_hb->setContentsMargins(icon_size / 2, 0, 0, 0);
+    applyIconSizes();
+    connect(FontManager::instance(), &FontManager::zoomChanged, this, &MainStatusBar::applyIconSizes);
 
     info_status_.setTemporaryContext(STATUS_CTX_TEMPORARY);
     info_status_.setShrinkable(true);
     info_status_.setAccessibleName(tr("Information"));
     info_status_.setAccessibleDescription(tr("Displays general information, status messages, and expert severity details."));
 
-    info_progress_hb->addWidget(expert_button_);
-    info_progress_hb->addWidget(comment_button_);
-    info_progress_hb->addWidget(&info_status_);
-    info_progress_hb->addWidget(&progress_frame_);
-    info_progress_hb->addStretch(10);
+    info_progress_hb_->addWidget(expert_button_);
+    info_progress_hb_->addWidget(comment_button_);
+    info_progress_hb_->addWidget(&info_status_);
+    info_progress_hb_->addWidget(&progress_frame_);
+    info_progress_hb_->addStretch(10);
 
     // LabelStack does setStyleSheet for QLabel but ClickableLabel does not
     packet_status_.setAccessibleName(tr("Packet statistics"));
@@ -233,9 +232,6 @@ void MainStatusBar::expertUpdate() {
         stock_name.append("chat");
         tt_text.prepend(tr("CHAT"));
         break;
-//    case(PI_COMMENT):
-//        m_expertStatus.setText("<img src=\":/expert/expert_comment.png\"></img>");
-//        break;
     default:
         stock_name.append("none");
         tt_text = tr("No expert information");
@@ -244,6 +240,7 @@ void MainStatusBar::expertUpdate() {
 
     ContrastAdaptIcon expert_icon(QStringLiteral(":/svg_icons/") + stock_name.toLatin1() + QStringLiteral(".svg"),
                                   QPalette::Window);
+    applyIconSizes();
     expert_button_->setIcon(expert_icon);
     expert_button_->setToolTip(tt_text);
     expert_button_->show();
@@ -270,6 +267,16 @@ void MainStatusBar::setReadyMsg()
     info_status_.pushText(std::move(ready_msg), STATUS_CTX_MAIN);
 }
 
+void MainStatusBar::applyIconSizes()
+{
+    // Both indicators match the display filter toolbar icons. They are not
+    // sized from the status text, whose font is smaller on macOS.
+    const int side = ZoomScaling::barIconSize();
+    expert_button_->setIconSize(QSize(side, side));
+    comment_button_->setIconSize(QSize(side, side));
+    info_progress_hb_->setContentsMargins(side / 2, 0, 0, 0);
+}
+
 void MainStatusBar::changeEvent(QEvent *event)
 {
     if (event->type() == QEvent::LanguageChange) {
@@ -278,6 +285,9 @@ void MainStatusBar::changeEvent(QEvent *event)
         setStatusbarForCaptureFile();
         showCaptureStatistics();
         setProfileName();
+    }
+    if (event->type() == QEvent::FontChange || event->type() == QEvent::ApplicationFontChange) {
+        applyIconSizes();
     }
     QStatusBar::changeEvent(event);
 }
@@ -445,7 +455,9 @@ void MainStatusBar::showCaptureStatistics()
 
     QList<int> rows;
     MainWindow * mw = mainApp->mainWindow();
-    if (mw) {
+    // Only a single selected packet is shown, so don't build the
+    // list of a large selection.
+    if (mw && !mw->hasSelection()) {
         rows = mw->selectedRows(true);
     }
 

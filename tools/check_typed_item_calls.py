@@ -199,8 +199,8 @@ compatible_encoding_args = {
     'FT_GUID':      {'ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN'},
     'FT_EUI64':     {'ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN'},
 
-    # It does seem harsh to need to set this when field is 8 bits of less..
-    'FT_BOOLEAN':   {'ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN'},
+    # TODO: should only accept ENC_NA when mask+width doesn't fit into a single byte!
+    'FT_BOOLEAN':   {'ENC_LITTLE_ENDIAN', 'ENC_BIG_ENDIAN', 'ENC_NA'},
 
 
     # N.B., these fields should also have an endian order...
@@ -262,6 +262,11 @@ class EncodingCheckerBasic:
             if encoding == 'ENC_NA' and 'FT_UINT' in item.item_type and call.length == 1:
                 return
 
+            # Have an exemption for FT_BYTES if called with _bits_ as endianness then matters
+            if type == 'FT_BYTES' and '_bits_' in call.function_name:
+                if encoding in { 'ENC_LITTLE_ENDIAN' }:
+                    return
+
             result.warn(api_check.file + ':' + str(call.line_number),
                         api_check.fun_name + ' called for ' + type + ' field "' + call.hf_name + '"', ' - with bad encoding - ' + '"' + encoding + '"', '-',
                         compatible_encoding_args[type], 'allowed')
@@ -307,10 +312,8 @@ def check_call_enc_matches_item(items_defined, call, api_check, result):
         checker = create_enc_checker(type)
         if checker is not None:
             for enc in encs:
-                if enc.startswith('ENC_') and type != 'FT_BOOLEAN':
-                    width = item.get_field_width_in_bits()
-                    if width is not None and width > 8:
-                        checker.check(enc, call, api_check, item, result)
+                if enc.startswith('ENC_'): # and type != 'FT_BOOLEAN':
+                    checker.check(enc, call, api_check, item, result)
 
 
 # A check for a particular API function.
@@ -1435,11 +1438,11 @@ class Item:
             # N.B., if last entry in set is removed, see around 18,000 warnings
             self.check_digits_all_zeros(self.mask)
 
-        # N.B. these checks are already done by checkApis.pl
+        # N.B. these checks are already done by check_apis.py
         if 'RVALS' in strings and 'BASE_RANGE_STRING' not in display:
             result.warn(filename, hf, 'filter "' + filter + ' strings has RVALS but display lacks BASE_RANGE_STRING')
 
-        # For RVALS, is BASE_RANGE_STRING also set (checked by checkApis.pl)?
+        # For RVALS, is BASE_RANGE_STRING also set (checked by check_apis.py)?
         if 'VALS_EXT_PTR' in strings and 'BASE_EXT_STRING' not in display:
             result.warn(filename, hf, 'filter "' + filter + ' strings has VALS_EXT_PTR but display lacks BASE_EXT_STRING')
 

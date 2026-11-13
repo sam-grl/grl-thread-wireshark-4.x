@@ -2,9 +2,10 @@
 // Wireshark Default Theme
 // =====================================================================
 //
-// The built-in theme shipped with Wireshark.  Every value here serves
-// as the fallback for custom themes — custom themes only need to
-// override what they want to change.
+// The built-in theme shipped with Wireshark.  Other themes only need
+// to set the colors they want to change; every color they omit is
+// derived from their brand, accent and palette colors, not taken from
+// this file.
 //
 // Format: JSONC — standard JSON with C-style comments.
 //
@@ -13,15 +14,15 @@
 //   "light" is used when the system/user selects light appearance,
 //   "dark" when dark appearance is active.
 //
-// Color formats accepted:
+// Color formats accepted (parsed by Qt's QColor):
 //   "#rrggbb"              — opaque hex
-//   "#rrggbbaa"            — hex with alpha
-//   "rgba(r, g, b, a)"    — CSS-style, alpha 0–255 (QSS convention)
+//   "#aarrggbb"            — hex with alpha, alpha FIRST
+//   "rgba(...)" is NOT accepted; use hex.
 //
-// To create a custom theme, copy this file, change "name", and adjust
-// any values you like.  Place it in your personal configuration
-// directory under themes/<name>/theme.jsonc and select it in
-// Edit → Preferences → Appearance.
+// To create a custom theme, use View → Internals → Theme Designer, or
+// copy this file to <stem>.jsonc in the personal themes directory,
+// change "name", and select it in Edit → Preferences → Appearance →
+// Theme and Font.
 // =====================================================================
 
 {
@@ -30,29 +31,31 @@
 	// =================================================================
 
 	"meta": {
-		"name": "Wireshark",
+		"name": "Wireshark Default",
 		"version": 1,
 		"author": "Wireshark Foundation",
-		"description": "The built-in Wireshark theme, based on the Tango palette."
+		"description": "The built-in Wireshark theme with the classic Wireshark colors."
 	},
 
+	// Contrast: "standard" (default) or "high".  "high" makes Wireshark
+	// use the stricter contrast ratios for derived colors with this theme,
+	// whatever the Contrast preference says.
+	// "contrast": "standard",
+
 	// -----------------------------------------------------------------
-	// Brand — the two colors that define the visual identity.
+	// Brand — the color that defines the visual identity.
 	//
-	// "primary" is the main brand hue — drives header gradient end
-	// (after WCAG clamp), selection highlight, section header hover,
-	// sparkline stroke, link accents, and the splash progress bar.
+	// "primary" drives section header hover, sparkline stroke, link
+	// accents and the splash progress bar, and the selection highlight
+	// when neither palette.highlight nor packets.selection is set (this
+	// theme sets packets.selection).  The welcome header bar is a darker
+	// shade of the selection color.
 	//
-	// "deep" is the darkest brand shade — drives header gradient start.
-	//
-	// Light primary is Tango sky_blue_4 (the classic Wireshark blue);
-	// deep is a darker derivative for the gradient start.  Dark mode
-	// uses a brighter primary so it reads against dark surfaces and a
-	// near-black deep with a hint of blue for the gradient.
+	// The light primary is a pale blue; dark mode uses a deeper blue
+	// that reads against dark surfaces.
 	// -----------------------------------------------------------------
 	"brand": {
-		"primary": { "light": "#a5cdff", "dark": "#314f78" },
-		"deep":    { "light": "#084ad9", "dark": "#0a1828" }
+		"primary": { "light": "#a5cdff", "dark": "#314f78" }
 	},
 
 	// -----------------------------------------------------------------
@@ -62,11 +65,8 @@
 	// explicit theme.filter override is present), status indicators,
 	// expert info fallbacks, and the "Development Build" badge.
 	//
-	// Default sources (Tango classic palette):
-	//   success — chameleon_3 (light) / _2 (dark)
-	//   warning — orange_3   (light) / _2 (dark)
-	//   error   — scarlet_4  (light) / _3 (dark)
-	//   info    — sky_blue_4 (light) / _3 (dark)
+	// Light values are darker shades that hold contrast on light
+	// surfaces; dark values are lighter shades for dark surfaces.
 	// -----------------------------------------------------------------
 	"accent": {
 		"success": { "light": "#4caf50", "dark": "#8ae234" },
@@ -160,21 +160,28 @@
 	//
 	// Dark values sit under the WCAG luminance threshold (0.179) so
 	// ColorMath::contrastingText() picks white automatically — avoids
-	// the black-on-saturated-green look brighter chameleon shades
+	// the black-on-saturated-green look brighter greens
 	// would cause in dark mode, and dims the red so it doesn't pop.
 	//
 	// "deprecated", "busy", and "busyText" are intentionally omitted;
 	// they derive from accent.warning / palette.base / palette.text.
 	//
 	// "history" is the resting tint of the recent-filters drop-down arrow.
-	// Pinned to the classic combo-arrow Tango grays (aluminium_4 /
-	// aluminium_2) so the default theme matches the pre-ThemeManager look;
-	// the glyph brightens to a strong colour on hover/press in the widget.
+	// Pinned to the grays of the classic combo-box arrow so the default
+	// theme matches the pre-ThemeManager look;
+	// the glyph lightens slightly on hover/press, then the contrast guard applies.
+	//
+	// "bookmarkMatch" is the bookmark glyph of a filter that is already
+	// saved.  Pinned to the classic yellow the glyph is drawn in, in both
+	// modes, so the default theme keeps its familiar look; derived, it
+	// would follow accent.warning (orange).  The other glyph colours
+	// (bookmark, bookmarkCapture, clear, apply) follow the accents.
 	// -----------------------------------------------------------------
 	"filter": {
 		"valid":      { "light": "#afffaf", "dark": "#006600" },
 		"invalid":    { "light": "#ffafaf", "dark": "#660000" },
 		"deprecated": { "light": "#ffffaf", "dark": "#666600" },
+		"bookmarkMatch": { "light": "#c4a000", "dark": "#c4a000" },
 		"history":    { "light": "#555753", "dark": "#d3d7cf" }
 	},
 
@@ -233,24 +240,19 @@
 	//
 	// "highlight" and "highlightedText" are the selection colors of all
 	// lists except the packet list.
-	// When omitted: highlight = brand.primary, highlightedText =
-	// contrastingTextColor(highlight).
+	// When omitted: highlight = packets.selection if set, else
+	// brand.primary; highlightedText = packets.selectionText when the
+	// highlight is packets.selection, else contrastingText(highlight).
 	//
 	// NOT in this section (auto-derived):
-	//   Link           = highlight if set, else brand.primary
+	//   Link           = highlight
 	//   Accent         = brand.primary (Qt 6.6+)
 	//
-	// The default theme only sets the selection colors; everything else
-	// uses the system palette as-is.  See the Solarized example for how
-	// to override.
+	// The default theme sets no role: lists select in the packet
+	// selection colors, and everything else uses the system palette
+	// as-is.  See the Solarized theme for how to override.
 	// -----------------------------------------------------------------
 	"palette": {
-		// Selection light is #3072cc (not the macOS-system #3a7ad2);
-		// the macOS value lands at 4.29:1 against white, just short of
-		// AA.  #3072cc is the smallest nudge that clears 4.5:1 while
-		// reading as the same blue.
-		"highlight":       { "light": "#3072cc", "dark": "#2a4068" },
-		"highlightedText": { "light": "#ffffff", "dark": "#ffffff" }
 		// "window":        { "light": "#...", "dark": "#..." },
 		// "windowText":    { "light": "#...", "dark": "#..." },
 		// "base":          { "light": "#...", "dark": "#..." },
@@ -274,11 +276,9 @@
 	// No backfill: if a custom theme defines 5 colors, only those 5
 	// are used — the remaining 9 from the default are NOT appended.
 	//
-	// Origin: Tango palette.
-	//   Light mode uses darker shades (_5/_6) for readability on
-	//   white backgrounds.
-	//   Dark mode uses lighter shades (_3) for readability on
-	//   dark backgrounds.
+	// Light mode uses darker shades for readability on light
+	// backgrounds; dark mode uses lighter shades for readability on
+	// dark backgrounds.
 	// -----------------------------------------------------------------
 	"graphs": [
 		{ "light": "#2e3436", "dark": "#babdb6" },

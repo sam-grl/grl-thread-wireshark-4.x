@@ -583,7 +583,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-catapult-dct2000.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cattp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cbor.c
-	${CMAKE_CURRENT_SOURCE_DIR}/packet-ccsds.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-ccsds-sp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cdp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cdma2k.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-cell_broadcast.c
@@ -727,6 +727,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dect-nr.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dect-nr-tap.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dect-nwk.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-dektec-sdi.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-devicenet.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dhcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-dhcp-failover.c
@@ -1237,6 +1238,7 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-metamako.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mgcp.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-midi.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-midi-sysex.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-midi-sysex_digitech.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mih.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mikey.c
@@ -1255,8 +1257,11 @@ set(DISSECTOR_SRC
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-moldudp64.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-monero.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mongo.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-moq-lite.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-moqt.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mount.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mp2t.c
+	${CMAKE_CURRENT_SOURCE_DIR}/packet-moq-file.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mp4ves.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mpeg-ca.c
 	${CMAKE_CURRENT_SOURCE_DIR}/packet-mpeg-descriptor.c
@@ -2089,9 +2094,10 @@ add_library(dissectors OBJECT
 )
 add_dependencies(dissectors generate_dissector_registration)
 
+target_link_libraries(dissectors PRIVATE GCrypt::GCrypt)
+
 target_include_directories(dissectors
 	SYSTEM PRIVATE
-		${GCRYPT_INCLUDE_DIRS}
 		${GNUTLS_INCLUDE_DIRS}
 		${KERBEROS_INCLUDE_DIRS}
 		${LIBXML2_INCLUDE_DIRS}

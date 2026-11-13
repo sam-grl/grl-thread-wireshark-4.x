@@ -83,6 +83,7 @@ class WelcomePage;
 class PacketCommentDialog;
 class PacketDiagram;
 class PacketList;
+class PreferencesDialog;
 class ProtoTree;
 #if defined(HAVE_LIBNL) && defined(HAVE_NL80211)
 class WirelessFrame;
@@ -287,6 +288,7 @@ private:
     QPoint dragStartPosition; /**< Mouse position recorded at the start of a drag operation. */
 
     QPointer<TLSKeylogDialog> tlskeylog_dialog_; /**< Modeless TLS keylog dialog; null when not open. */
+    QPointer<PreferencesDialog> preferences_dialog_; /**< Open Preferences dialog; null when none exists. */
 
     /**
      * @brief Freezes the packet list and disables UI elements during long operations.
@@ -1187,10 +1189,6 @@ private slots:
     /** @brief Opens the Endpoints statistics dialog. */
     void showEndpointsDialog();
 
-    /** @brief Opens the Distribution statistics dialog. */
-    void showDistributionDialog(const QString &abbreviation);
-    void showDistributionDialog();
-
     /**
      * @brief Opens a TCP stream graph dialog for the given graph type.
      * @param graph_type TCP stream graph type constant (e.g. time-sequence, throughput).
@@ -1244,6 +1242,16 @@ private slots:
      * @param filtered @c true to restrict the plot to currently displayed packets.
      */
     void showPlotDialog(const QString &y_field = QString(), bool filtered = false) override;
+
+    /**
+     * @brief Opens an I/O Graph dialog with one graph per filter.
+     * @param displayFilter Display filter of the first graph; empty for none.
+     * @param filters       Display filters, one extra graph each (at most maxIOGraphFilters).
+     * @param names         Legend names for @p filters; the filter text where missing.
+     */
+    void showIOGraphDialogForFilters(const QString &displayFilter,
+                                     const QVector<QString> &filters,
+                                     const QVector<QString> &names = QVector<QString>()) override;
 
     /** @brief Connects Telephony menu actions to their implementation slots. */
     void connectTelephonyMenuActions();

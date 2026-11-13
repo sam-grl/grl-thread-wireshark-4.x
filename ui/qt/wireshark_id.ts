@@ -65,19 +65,19 @@
     </message>
     <message>
         <source>The directory does not exist</source>
-        <translation>Direktori tidak ada</translation>
+        <translation type="vanished">Direktori tidak ada</translation>
     </message>
     <message>
         <source>Should the directory %1 be created?</source>
-        <translation>Apakah direktori %1 mesti dibuat?</translation>
+        <translation type="vanished">Apakah direktori %1 mesti dibuat?</translation>
     </message>
     <message>
         <source>The directory could not be created</source>
-        <translation>Direktori tidak bisa dibuat</translation>
+        <translation type="vanished">Direktori tidak bisa dibuat</translation>
     </message>
     <message>
         <source>The directory %1 could not be created.</source>
-        <translation>Direktori %1 tidak bisa dibuat.</translation>
+        <translation type="vanished">Direktori %1 tidak bisa dibuat.</translation>
     </message>
     <message>
         <source>Show in Finder</source>
@@ -1747,6 +1747,10 @@ Misalnya, gunakan 1 jam agar ada satu berkas baru dibuat setiap jam pada awal ja
         <translation>Frame</translation>
     </message>
     <message>
+        <source>Capture</source>
+        <translation type="unfinished">Tangkap</translation>
+    </message>
+    <message>
         <source>Default interface</source>
         <translation>Antar muka baku</translation>
     </message>
@@ -2063,6 +2067,10 @@ Misalnya, gunakan 1 jam agar ada satu berkas baru dibuat setiap jam pada awal ja
     <message>
         <source>Frame</source>
         <translation>Frame</translation>
+    </message>
+    <message>
+        <source>Columns</source>
+        <translation type="unfinished">Kolom</translation>
     </message>
     <message>
         <source>Add a new column</source>
@@ -3122,24 +3130,143 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
 <context>
     <name>DistributionDialog</name>
     <message>
-        <source>Field Values Distribution</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Field Value</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Occurrences</source>
-        <translation>Kemunculan</translation>
+        <translation type="vanished">Kemunculan</translation>
     </message>
     <message>
         <source>Percent</source>
-        <translation>Persen</translation>
+        <translation type="vanished">Persen</translation>
     </message>
     <message>
         <source>Distribution:</source>
-        <translation>Distribusi:</translation>
+        <translation type="vanished">Distribusi:</translation>
+    </message>
+    <message>
+        <source>Dialog</source>
+        <translation type="unfinished">Dialog</translation>
+    </message>
+    <message>
+        <source>Fields:</source>
+        <translation type="unfinished">Ruas:</translation>
+    </message>
+    <message>
+        <source>Apply</source>
+        <translation type="unfinished">Terapkan</translation>
+    </message>
+    <message>
+        <source>Display filter:</source>
+        <translation type="unfinished">Filter tampilan:</translation>
+    </message>
+    <message>
+        <source>Resolve values</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show chart</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation type="unfinished">Salin</translation>
+    </message>
+    <message>
+        <source>Copy the selected rows as text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save as…</source>
+        <translation type="unfinished">Simpan sebagai...</translation>
+    </message>
+    <message>
+        <source>Save the table in various formats</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show in I/O Graph</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Distribution</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open an I/O Graph with a graph for each selected row (at most %1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Count</source>
+        <translation type="unfinished">Cacah</translation>
+    </message>
+    <message>
+        <source>%1 distinct values </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>A packet can contain a field more than once, so the percentages (of packets) add up to more than 100 %.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>An event can contain a field more than once, so the percentages (of events) add up to more than 100 %.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter one or more fields above and press Apply, for example ip.ttl, or ip.src, tcp.dstport for a joint distribution.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter one or more fields above and press Apply, for example evt.type, or evt.type, proc.name for a joint distribution.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Count the field values in the packets matching the display filter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Count the field values in the events matching the display filter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Distribution of %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy as Filter</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>DistributionModel</name>
+    <message>
+        <source>&quot;%1&quot; cannot be counted.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is a protocol and has no values to count. Enter one of its fields, for example %2.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is a protocol and has no values to count.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is a label without a value and cannot be counted.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; has variants of different types and cannot be counted.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Count</source>
+        <translation type="unfinished">Cacah</translation>
+    </message>
+    <message>
+        <source>Percent</source>
+        <translation type="unfinished">Persen</translation>
+    </message>
+    <message>
+        <source>Value</source>
+        <translation type="unfinished">Nilai</translation>
     </message>
 </context>
 <context>
@@ -3773,8 +3900,32 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
         <translation>Entri ruas</translation>
     </message>
     <message>
+        <source>Enter up to %1 fields, separated by commas%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enter fields, separated by commas%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Enter a field %1</source>
         <translation>Masukkan suatu ruas %1</translation>
+    </message>
+    <message>
+        <source>Up to %1 fields can be combined (%2 entered).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Field %1 is empty.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is neither a field nor a protocol name.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is deprecated. Use &quot;%2&quot; instead.</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Invalid field: </source>
@@ -4463,16 +4614,16 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
         <translation>Frame</translation>
     </message>
     <message>
-        <source>Main window font:</source>
-        <translation>Fonta jendela utama:</translation>
-    </message>
-    <message>
-        <source>Select Font</source>
-        <translation>Pilih Fonta</translation>
-    </message>
-    <message>
         <source>Theme</source>
         <translation>Tema</translation>
+    </message>
+    <message>
+        <source>Contrast:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Theme Designer…</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Theme Author Information</source>
@@ -4481,15 +4632,6 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
     <message>
         <source>Theme Description</source>
         <translation>Deskripsi Tema</translation>
-    </message>
-    <message>
-        <source>Example GIF query packets have jumbo window sizes</source>
-        <extracomment>These are pangrams. Feel free to replace with nonsense text that spans your alphabet. https://en.wikipedia.org/wiki/Pangram</extracomment>
-        <translation>Tokoh qari bonceng juru xilofon di vespanya muzawir</translation>
-    </message>
-    <message>
-        <source>Lazy badgers move unique waxy jellyfish packets</source>
-        <translation>Muharjo seorang xenofobia universal yang takut pada warga jazirah, contohnya Qatar</translation>
     </message>
     <message>
         <source>System</source>
@@ -4512,12 +4654,146 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
         <translation>Tema:</translation>
     </message>
     <message>
-        <source>Theme by %1</source>
-        <translation>Tema menurut %1</translation>
+        <source>Standard</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>High</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>System follows the operating system contrast setting (Qt 6.10 or later).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The operating system contrast setting cannot be read with this Qt version; System acts as Standard.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The selected theme always uses high contrast.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Author: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Theme by %1</source>
+        <translation type="vanished">Tema menurut %1</translation>
+    </message>
+</context>
+<context>
+    <name>FontPreferencesFrame</name>
+    <message>
+        <source>Frame</source>
+        <translation type="unfinished">Frame</translation>
+    </message>
+    <message>
+        <source>Monospace font</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Used by the packet list, packet details, packet bytes and other text views.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 is not a monospaced font. Hex bytes and aligned columns will not line up.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packet Details underlines links and shows entries of disabled coloring rules in italic. With an italic or underlined font only their colors mark them.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>FontSelectionDialog</name>
+    <message>
         <source>Font</source>
-        <translation>Fonta</translation>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>FontSelectionWidget</name>
+    <message>
+        <source>&amp;Family</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>St&amp;yle</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter font families</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter families</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Font style</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Font size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Font family</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Font sizes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show only &amp;monospaced fonts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Effects</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stri&amp;keout</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Underline</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sample</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Example GIF query packets have jumbo window sizes</source>
+        <extracomment>These are pangrams. Feel free to replace with nonsense text that spans your alphabet. https://en.wikipedia.org/wiki/Pangram</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Lazy badgers move unique waxy jellyfish packets</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(Platform default)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (not installed)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No matching font families</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation type="unfinished">Baku</translation>
     </message>
 </context>
 <context>
@@ -5034,6 +5310,14 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
     <message>
         <source>Toggle Y-axis between logarithmic and linear scale</source>
         <translation>Jungkitkan sumbu Y antara skala logaritmis dan linier</translation>
+    </message>
+    <message>
+        <source>EWMA moving average</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Toggle Moving Average algorithm between EWMA and SMA</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Crosshairs</source>
@@ -6290,6 +6574,13 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
     </message>
 </context>
 <context>
+    <name>JsoncDocument</name>
+    <message>
+        <source>A block comment is not closed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>KeyboardShortcutsDialog</name>
     <message>
         <source>Keyboard Shortcuts</source>
@@ -7175,10 +7466,6 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
         <translation>Panel 3:</translation>
     </message>
     <message>
-        <source>Packet List settings:</source>
-        <translation>Pengaturan Daftar Paket:</translation>
-    </message>
-    <message>
         <source>Show packet separator</source>
         <translation>Tampilkan pemisah paket</translation>
     </message>
@@ -7203,10 +7490,6 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
         <translation>Fungsikan pewarnaan tetikus lewat</translation>
     </message>
     <message>
-        <source>Status Bar settings:</source>
-        <translation>Pengaturan Bilah Status:</translation>
-    </message>
-    <message>
         <source>Show selected packet number</source>
         <translation>Tampilkan nomor paket yang dipilih</translation>
     </message>
@@ -7217,6 +7500,10 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
     <message>
         <source>Packet list multi-color display mode:</source>
         <translation>Mode tampilan multi warna daftar paket:</translation>
+    </message>
+    <message>
+        <source>Pane Layout</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Off</source>
@@ -7273,6 +7560,14 @@ Relatif ke acuan: t/t (di luar rentang acuan)</translation>
     <message>
         <source>Display multiple colors in packet details</source>
         <translation>Tampilkan beberapa warna dalam rincian paket</translation>
+    </message>
+    <message>
+        <source>Show disabled coloring rules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Status Bar</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -8536,6 +8831,10 @@ on an existing breakpoint, toggle its active state</source>
         <translation>Frame</translation>
     </message>
     <message>
+        <source>Appearance</source>
+        <translation type="unfinished">Penampakan</translation>
+    </message>
+    <message>
         <source>Checking this will save the size, position, and maximized state of the main window.</source>
         <translation>Mencentang ini akan menyimpan ukuran, posisi, dan keadaan termaksimumkan dari jendela utama.</translation>
     </message>
@@ -8787,6 +9086,65 @@ on an existing breakpoint, toggle its active state</source>
     <message>
         <source>OK</source>
         <translation>OK</translation>
+    </message>
+</context>
+<context>
+    <name>MkaCaDialog</name>
+    <message>
+        <source>MKA Connectivity Associations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CA | Peer | Event</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation type="unfinished">Rincian</translation>
+    </message>
+    <message>
+        <source>Install / Activate / Retire Timings | Frames</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Font…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Choose the font and size for this dialog.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Refresh</source>
+        <translation type="unfinished">Segarkan</translation>
+    </message>
+    <message>
+        <source>Auto Refresh</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Re-run the analysis as new packets are captured.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>MKA Connectivity Associations Font</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;CKN not in table&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Peers (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Key Server History (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Peer Group Formations (%1)</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -9465,22 +9823,6 @@ on an existing breakpoint, toggle its active state</source>
 <context>
     <name>PacketListModel</name>
     <message>
-        <source>Column</source>
-        <translation type="vanished">Kolom</translation>
-    </message>
-    <message>
-        <source>%1 can only be sorted with %2 or fewer visible rows; increase cache size in Layout preferences</source>
-        <translation type="vanished">%1 hanya dapat diurutkan dengan baris tampak %2 atau kurang; naikkan ukuran singgahan dalam preferensi Tata Letak</translation>
-    </message>
-    <message>
-        <source>Sorting &quot;%1&quot;…</source>
-        <translation type="vanished">Mengurutkan &quot;%1&quot;...</translation>
-    </message>
-    <message>
-        <source>Sorting …</source>
-        <translation type="vanished">Mengurutkan ...</translation>
-    </message>
-    <message>
         <source>Marked</source>
         <translation type="unfinished">Ditandai</translation>
     </message>
@@ -9501,19 +9843,19 @@ on an existing breakpoint, toggle its active state</source>
     <name>PacketListProxyModel</name>
     <message>
         <source>Column</source>
-        <translation type="unfinished">Kolom</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>%1 can only be sorted with %2 or fewer visible rows; increase cache size in Layout preferences</source>
-        <translation type="unfinished">%1 hanya dapat diurutkan dengan baris tampak %2 atau kurang; naikkan ukuran singgahan dalam preferensi Tata Letak</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Sorting &quot;%1&quot;…</source>
-        <translation type="unfinished">Mengurutkan &quot;%1&quot;...</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Sorting …</source>
-        <translation type="unfinished">Mengurutkan ...</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -9587,6 +9929,17 @@ on an existing breakpoint, toggle its active state</source>
     <message>
         <source>Select a path</source>
         <translation>Pilih suatu path</translation>
+    </message>
+</context>
+<context>
+    <name>PinnedRowsModel</name>
+    <message>
+        <source>This packet is pinned but doesn&apos;t match the display filter.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This packet is pinned but has been aggregated into a later row with the same key.</source>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -10143,6 +10496,10 @@ on an existing breakpoint, toggle its active state</source>
 <context>
     <name>PreferencesDialog</name>
     <message>
+        <source>Advanced</source>
+        <translation type="unfinished">Tingkat lanjut</translation>
+    </message>
+    <message>
         <source>Search:</source>
         <translation>Cari:</translation>
     </message>
@@ -10188,8 +10545,8 @@ on an existing breakpoint, toggle its active state</source>
         <translation>Kolom</translation>
     </message>
     <message>
-        <source>Theme and Font</source>
-        <translation type="unfinished"></translation>
+        <source>Theme</source>
+        <translation type="unfinished">Tema</translation>
     </message>
     <message>
         <source>Welcome Page</source>
@@ -10213,6 +10570,10 @@ on an existing breakpoint, toggle its active state</source>
     </message>
     <message>
         <source>Aggregation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fonts</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -10639,15 +11000,11 @@ on an existing breakpoint, toggle its active state</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Resume Coloring Rule</source>
+        <source>Enable Coloring Rule</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Pause Coloring Rule</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Resume All Coloring Rules</source>
+        <source>Disable Coloring Rule</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -11641,6 +11998,110 @@ This will restart all Lua scripts and may affect capture analysis.</source>
 %1: add or remove on the current line in the editor</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source> [Key Server]</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SCI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Detected MIs (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>no peers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>no peers activated (0/%1 peers)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Formation Time %1 ms (%2/%3 Peers)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>KN %1  AN %2  Frames %3 - %4</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Key Server SCI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Key Server MI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Target SAK</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;Unable to unwrap SAK&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Peers (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>not activated</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>not installed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>immediate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>not retired</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> [KS]</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 / %2 / %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>MI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Installation Time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Formation Time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Retirement Time</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The directory does not exist</source>
+        <translation type="unfinished">Direktori tidak ada</translation>
+    </message>
+    <message>
+        <source>Should the directory %1 be created?</source>
+        <translation type="unfinished">Apakah direktori %1 mesti dibuat?</translation>
+    </message>
+    <message>
+        <source>The directory could not be created</source>
+        <translation type="unfinished">Direktori tidak bisa dibuat</translation>
+    </message>
+    <message>
+        <source>The directory %1 could not be created.</source>
+        <translation type="unfinished">Direktori %1 tidak bisa dibuat.</translation>
+    </message>
 </context>
 <context>
     <name>RecentCaptureFilesListModel</name>
@@ -12557,6 +13018,14 @@ This will restart all Lua scripts and may affect capture analysis.</source>
     <message>
         <source>Invert muting of selected streams</source>
         <translation>Balikkan pembisuan stream yang dipilih</translation>
+    </message>
+    <message>
+        <source>Solo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unmute selected streams and mute all other streams</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Route audio to left channel of selected streams</source>
@@ -14401,6 +14870,25 @@ This will restart all Lua scripts and may affect capture analysis.</source>
     </message>
 </context>
 <context>
+    <name>StatTableExporter</name>
+    <message>
+        <source>Save Statistics As…</source>
+        <translation type="unfinished">Simpan Statistik Sebagai...</translation>
+    </message>
+    <message>
+        <source>Plain text file (*.txt);;Comma separated values (*.csv);;XML document (*.xml);;YAML document (*.yaml)</source>
+        <translation type="unfinished">Berkas teks polos (*.txt);;Comma separated values (*.csv);;Dokumen XML (*.xml);;Dokumen YAML (*.yaml)</translation>
+    </message>
+    <message>
+        <source>Plain text file (*.txt)</source>
+        <translation type="unfinished">Berkas teks polos (*.txt)</translation>
+    </message>
+    <message>
+        <source>Error saving file %1</source>
+        <translation type="unfinished">Galat saat menyimpan berkas %1</translation>
+    </message>
+</context>
+<context>
     <name>StatsTreeDialog</name>
     <message>
         <source>Configuration not found</source>
@@ -15337,7 +15825,7 @@ This will restart all Lua scripts and may affect capture analysis.</source>
         <translation type="unfinished">Buka </translation>
     </message>
     <message>
-        <source>(no tagrules file yet — will be created on save)</source>
+        <source>(no tagrules.jsonc file yet — will be created on save)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -15433,19 +15921,19 @@ This will restart all Lua scripts and may affect capture analysis.</source>
     </message>
     <message>
         <source>Save Statistics As…</source>
-        <translation>Simpan Statistik Sebagai...</translation>
+        <translation type="vanished">Simpan Statistik Sebagai...</translation>
     </message>
     <message>
         <source>Plain text file (*.txt);;Comma separated values (*.csv);;XML document (*.xml);;YAML document (*.yaml)</source>
-        <translation>Berkas teks polos (*.txt);;Comma separated values (*.csv);;Dokumen XML (*.xml);;Dokumen YAML (*.yaml)</translation>
+        <translation type="vanished">Berkas teks polos (*.txt);;Comma separated values (*.csv);;Dokumen XML (*.xml);;Dokumen YAML (*.yaml)</translation>
     </message>
     <message>
         <source>Plain text file (*.txt)</source>
-        <translation>Berkas teks polos (*.txt)</translation>
+        <translation type="vanished">Berkas teks polos (*.txt)</translation>
     </message>
     <message>
         <source>Error saving file %1</source>
-        <translation>Galat saat menyimpan berkas %1</translation>
+        <translation type="vanished">Galat saat menyimpan berkas %1</translation>
     </message>
 </context>
 <context>
@@ -15485,6 +15973,153 @@ Preferences → Protocols → TCP to use this table.</source>
     </message>
     <message>
         <source>Stream:</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ThemeColorEditor</name>
+    <message>
+        <source>Filter colors</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Changed only</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Value (Light)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>State</source>
+        <translation type="unfinished">Keadaan</translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation type="unfinished">Terang</translation>
+    </message>
+    <message>
+        <source>Choose...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Revert</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation type="unfinished">Gelap</translation>
+    </message>
+    <message>
+        <source>Use Auto</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Graph color cycle. No backfill from the default theme.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hairline dividers between cards and panes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>color %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No graph colors</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Derived (read-only)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Value (Dark)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>edited</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>changed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>required</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Derived, read-only. Source: %1. Not stored in theme files.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> Right-click the row to go to a source color.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>changed by another color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Affects: %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is not a color. Use #rrggbb.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Revert to the saved value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove this color; the saved theme does not set it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No source color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (derived)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Go to %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Also uses %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Revert Color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>auto %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>auto row background</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Choose %1 (%2)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -15684,6 +16319,546 @@ Preferences → Protocols → TCP to use this table.</source>
     </message>
 </context>
 <context>
+    <name>ThemeDesignerDialog</name>
+    <message>
+        <source>Theme Designer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Themes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bundled themes cannot be modified. Changes are saved as a new personal theme.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New…</source>
+        <translation type="unfinished">Baru...</translation>
+    </message>
+    <message>
+        <source>Copy…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete</source>
+        <translation type="unfinished">Hapus</translation>
+    </message>
+    <message>
+        <source>Import…</source>
+        <translation type="unfinished">Impor...</translation>
+    </message>
+    <message>
+        <source>Export…</source>
+        <translation type="unfinished">Ekspor...</translation>
+    </message>
+    <message>
+        <source>Personal themes folder:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open the folder in the file manager</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name:</source>
+        <translation type="unfinished">Nama:</translation>
+    </message>
+    <message>
+        <source>Author:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Description:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Appearance:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Light</source>
+        <translation type="unfinished">Terang</translation>
+    </message>
+    <message>
+        <source>Dark</source>
+        <translation type="unfinished">Gelap</translation>
+    </message>
+    <message>
+        <source>side to edit and preview</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Colors</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fonts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default values use the platform fonts and are not written to the file, so the theme stays portable.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Family:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Size:</source>
+        <translation type="unfinished">Ukuran:</translation>
+    </message>
+    <message>
+        <source>Sample:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packets: 9 · Displayed: 9 (100.0%)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Example GIF query packets have jumbo window sizes 0123456789</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Code</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Compare with:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Previous Change</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Next Change</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy to Clipboard</source>
+        <translation type="unfinished">Salin ke Papan Klip</translation>
+    </message>
+    <message>
+        <source>Welcome Page</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Packet List</source>
+        <translation type="unfinished">Daftar Paket</translation>
+    </message>
+    <message>
+        <source>Help</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Revert</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Use Theme</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation type="unfinished">Simpan</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished">Tutup</translation>
+    </message>
+    <message>
+        <source>%1 Copy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy Theme</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy</source>
+        <translation type="unfinished">Salin</translation>
+    </message>
+    <message>
+        <source>Save Theme As</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New Theme</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Create</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename Theme</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rename</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (bundled)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Import Theme</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; could not be imported.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Your monospace font preference on the Fonts page (%1) overrides the theme&apos;s monospace font, so this setting only applies where that preference is not set. The preview shows the theme&apos;s font.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save the theme (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bundled</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Personal</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No personal themes yet</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The theme &quot;%1&quot; could not be loaded.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bundled with Wireshark, read-only</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Personal theme, %1.jsonc</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The theme &quot;%1&quot; has unsaved changes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Platform default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (not installed)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default</source>
+        <translation type="unfinished">Baku</translation>
+    </message>
+    <message>
+        <source>%1 pt</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Revert Font</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Regular font</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Monospace font</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Saved file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 changed, %2 added, %3 removed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not valid: %1 is not a color. The theme cannot be saved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not valid: %1 is required. The theme cannot be saved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not valid: the file does not read back unchanged. The theme cannot be saved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Valid. Parses with the theme parser and reads back unchanged.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>1 color is not valid. Fix it to save.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 colors are not valid. Fix them to save.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 edited, %2 changed as a consequence. Not saved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Loaded with problems. Saving rewrites the file without the invalid entries.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bundled theme, no changes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No unsaved changes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save As…</source>
+        <translation type="unfinished">Simpan Sebagai...</translation>
+    </message>
+    <message>
+        <source>Save the theme first.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not a theme color.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Links have no color of their own; they follow %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cleared the color filter to show %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not a theme color</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1  %2</source>
+        <extracomment>Theme Designer sample context menu entry: the part a color paints (Text, Background, Border, Link text), then the color name.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;%1&lt;/b&gt; (links follow it) · %2</source>
+        <extracomment>Tooltip over a Theme Designer sample: color name, then the part it paints.</extracomment>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;%1&lt;/b&gt; · %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Click to select it in Colors. Right-click for all colors here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The personal themes folder is not available, so the theme cannot be saved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is the name of a bundled theme, so the theme cannot be saved under it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The theme does not read back unchanged, so it was not saved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The theme could not be saved to %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The saved file %1 does not load as a theme.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The theme has changes that cannot be saved. Fix or revert them before renaming it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The theme was saved as %1, but the old file %2 could not be removed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete the theme &quot;%1&quot;?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The file %1 is removed. This cannot be undone.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The file %1 could not be removed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Theme files (*.jsonc *.json)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The file is larger than 1 MiB.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The file could not be read: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The file is not a theme.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Imported.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Imported with 1 note.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Imported with %1 notes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export Theme</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The theme could not be exported to %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ThemeImportErrorDialog</name>
+    <message>
+        <source>Nothing was copied to your personal themes. Imported files are limited in size and may only contain meta data, colors and fonts.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ThemeManager</name>
+    <message>
+        <source>Theme &quot;%1&quot; not found.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ThemeNameDialog</name>
+    <message>
+        <source>Copy of:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name:</source>
+        <translation type="unfinished">Nama:</translation>
+    </message>
+    <message>
+        <source>File name:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Folder:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The file name is made from the name. A name already used by a bundled or personal theme gets a number appended.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ThemeParser</name>
+    <message>
+        <source>Could not open &quot;%1&quot;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Line %1, column %2: %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>missing required section &quot;%1&quot;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>unknown section &quot;%1&quot;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Line %1: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1.%2: &quot;%3&quot; is not a color.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1: only one side set, the other side uses the same value.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1.%2: not a color pair.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1.%2: unknown color, skipped.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1: missing required color &quot;%2&quot;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ThemePreviewPick</name>
+    <message>
+        <source>Link text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Border</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Background</source>
+        <translation type="unfinished">Latar belakang</translation>
+    </message>
+    <message>
+        <source>Save Theme Preview</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PNG Image (*.png)</source>
+        <translation type="unfinished">Gambar PNG (*.png)</translation>
+    </message>
+    <message>
+        <source>Could not write the image to &quot;%1&quot;.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>ThemePreviewWidget</name>
     <message>
         <source>No.</source>
@@ -15722,18 +16897,6 @@ Preferences → Protocols → TCP to use this table.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Save Theme Preview</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>PNG Image (*.png)</source>
-        <translation type="unfinished">Gambar PNG (*.png)</translation>
-    </message>
-    <message>
-        <source>Could not write the image to &quot;%1&quot;.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Info</source>
         <translation type="unfinished"></translation>
     </message>
@@ -15749,8 +16912,553 @@ Preferences → Protocols → TCP to use this table.</source>
         <source>Packets: %1</source>
         <translation type="unfinished">Paket: %1</translation>
     </message>
+</context>
+<context>
+    <name>ThemeTokenHandler</name>
     <message>
-        <source>Displayed: %1 (100.0%)</source>
+        <source>accent.info at 40% opacity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success at 40% opacity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.warning at 40% opacity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.error at 40% opacity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on expert.comment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 30% toward brand.primary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.window 40% toward brand.primary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>brand.primary 65% darker</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 50% toward palette.windowText</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 40% toward palette.windowText</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on packets.selection, kept readable on it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on packets.inactive, kept readable on it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on packets.marked, kept readable on it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 40% toward accent.error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 40% toward brand.primary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.error 30% darker (light) / 50% lighter (dark)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>brand.primary 30% darker (light) / 50% lighter (dark)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 33% toward accent.success</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 33% toward accent.success, moved until black or white text is readable on it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 33% toward accent.error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 33% toward accent.error, moved until black or white text is readable on it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 33% toward accent.warning</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 33% toward accent.warning, moved until black or white text is readable on it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.text 50% toward palette.base, lifted to the large text ratio on filter.busy</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.warning</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.mid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.mid, kept readable on palette.base</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success 30% darker (light) / lighter (dark)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.info 30% darker (light) / lighter (dark)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.highlight 40% darker, kept apart from palette.window and readable under HeaderText</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.highlightedText if readable on HeaderBackground, else black or white</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>HeaderText 25% toward HeaderBackground, kept at the large text ratio (readable text ratio in high contrast)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>brand.primary, kept readable on palette.base</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.mid, kept at the non-text ratio to palette.base</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 53% toward palette.mid, kept at the divider ratio to palette.base</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.text 40% toward palette.base, kept readable on palette.base</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 16% (light) / 22% (dark) toward accent.success</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 16% (light) / 30% (dark) toward accent.info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 10% (light) / 22% (dark) toward accent.error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 10% (light) / 22% (dark) toward accent.info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 45% toward accent.info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 8% (light) / 22% (dark) toward accent.error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.base 50% toward accent.error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.alternateBase when set, else palette.base; in dark mode kept at the dark card surface ratio to palette.base</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Separator, kept at the divider ratio to CardBackground</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SectionHeader, kept readable on CardBackground</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SectionHeaderHover, kept readable on CardBackground</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>the palette link color, kept readable on CardBackground and on CardLinkHover</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>hover fill of palette.highlight on CardBackground, moved until CardLink reads on it</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>palette.highlight, kept readable on CardBackground</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>the lighter of palette.base and CardBackground</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Separator, kept at the divider ratio to OverlayCardBackground</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on accent.success</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on accent.warning</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on accent.error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on accent.info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on filter.valid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on filter.invalid</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white on filter.deprecated</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success 60% darker</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success at 20% opacity</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success 50% lighter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success 70% lighter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success 30% lighter</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success 20% darker</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success 8% darker</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success 16% darker</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success 40% darker</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>black or white faded toward UpdateButtonDisabledBg</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>hover tint on the update bar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>pressed tint on the update bar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>accent.success, kept at the non-text ratio to UpdateBackground in high contrast</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>packets.selection when set, else brand.primary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>packets.selectionText when palette.highlight is packets.selection, else black or white on palette.highlight, kept readable on it</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ThemeWelcomePreview</name>
+    <message>
+        <source>Development Build</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Release Notes</source>
+        <translation type="unfinished">Catatan Rilis</translation>
+    </message>
+    <message>
+        <source>Download Update</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capture</source>
+        <translation type="unfinished">Tangkap</translation>
+    </message>
+    <message>
+        <source>…using this filter:</source>
+        <translation type="unfinished">...memakai filter ini:</translation>
+    </message>
+    <message>
+        <source>tcp port 443</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>5 interfaces</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Update available: %1 &lt;b&gt;&lt;span style=&quot;color:%2&quot;&gt;4.8.0&lt;/span&gt;&lt;/b&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Image As…</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ThemeWriter</name>
+    <message>
+        <source>Main brand hue: section header hover, link fallback, last selection fallback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Update bar, valid filter tint fallback, capture bookmark glyph.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Development Build badge, deprecated filter tint fallback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invalid filter tint fallback, clear glyph, client stream text fallback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bookmark and apply glyphs, expert chat and note fallback.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Expert item background without severity.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Expert comment background.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Expert chat background.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Expert note background.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Expert warning background.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Expert error background.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Text on expert backgrounds.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selected packet row background; selection in other lists when palette.highlight is not set.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selected packet row text.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selection background when the view has no focus.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Inactive selection text.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Marked packet background.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Marked packet text.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ignored packet background. Auto: the normal row background.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ignored packet text.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dimmed text for hidden items.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Display filter background, valid expression.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Display filter background, invalid expression.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Display filter background, deprecated syntax.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capture filter background while compiling.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Capture filter text while compiling.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bookmark glyph in the display filter.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bookmark glyph in the capture filter.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bookmark glyph when the filter matches a saved one.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear glyph.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Apply glyph.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Recent filters arrow at rest.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Follow Stream client background.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Follow Stream client text.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Follow Stream server background.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Follow Stream server text.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Window background (QPalette::Window).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>View background (lists, editors).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>View text.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Window text.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Alternate rows in lists and tables.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mid gray: borders, section headers, separators.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Light bevel shade (QPalette::Midlight).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selection in all lists except the packet list; the welcome header and hover fills derive from it. Auto: packets.selection, else brand.primary.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Text on highlight, kept readable on it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>QPalette::Accent (Qt 6.6 and later). Auto: brand.primary.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not create &quot;%1&quot;.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -16424,7 +18132,19 @@ Preferences → Protocols → TCP to use this table.</source>
         <translation type="unfinished">Frame</translation>
     </message>
     <message>
-        <source>Tips Section</source>
+        <source>General</source>
+        <translation type="unfinished">Umum</translation>
+    </message>
+    <message>
+        <source>Show the Open and Capture sections next to each other when the window is wide enough, otherwise stacked.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prefer Open and Capture sections side-by-side</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tips</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -16460,8 +18180,8 @@ Preferences → Protocols → TCP to use this table.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Learn Section</source>
-        <translation type="unfinished"></translation>
+        <source>Learn</source>
+        <translation type="unfinished">Belajar</translation>
     </message>
     <message>
         <source>Show Learn section in sidebar</source>
@@ -17837,6 +19557,10 @@ Preferences → Protocols → TCP to use this table.</source>
         <translation>Acuan Filter Tampilan</translation>
     </message>
     <message>
+        <source>Discord</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>First Packet in Conversation</source>
         <translation>Paket Pertama dalam Percakapan</translation>
     </message>
@@ -18309,6 +20033,14 @@ Preferences → Protocols → TCP to use this table.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Theme D&amp;esigner…</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Create, copy, edit, import and export personal themes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>MAP Summary</source>
         <translation>Ringkasan MAP</translation>
     </message>
@@ -18335,10 +20067,6 @@ Preferences → Protocols → TCP to use this table.</source>
     <message>
         <source>Show Linked Packet in New Window</source>
         <translation>Tunjukkan Paket Tertaut dalam Jendela Baru</translation>
-    </message>
-    <message>
-        <source>Aggregation in Live Capture</source>
-        <translation type="vanished">Agregasi dalam Penangkapan Live</translation>
     </message>
     <message>
         <source>New Coloring Rule…</source>
@@ -18393,6 +20121,14 @@ Preferences → Protocols → TCP to use this table.</source>
     <message>
         <source>Release Notes</source>
         <translation>Catatan Rilis</translation>
+    </message>
+    <message>
+        <source>Personal Themes Folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open the folder that holds your own theme files</source>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>&amp;VoIP Calls</source>
@@ -18656,6 +20392,14 @@ Preferences → Protocols → TCP to use this table.</source>
         <translation>Anda tidak bisa mengekspor paket ke berkas tangkapan saat ini.</translation>
     </message>
     <message>
+        <source>Display frames grouped by your configured aggregation fields.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Display frames grouped by your configured aggregation fields. To activate, go to Preferences → Aggregation.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Do you want to save the changes you&apos;ve made%1?</source>
         <oldsource>Do you want to save the captured packets</oldsource>
         <translation>Apakah Anda hendak menyimpan perubahan yang telah Anda buat%1?</translation>
@@ -18713,16 +20457,6 @@ Preferences → Protocols → TCP to use this table.</source>
     <message>
         <source>Unknown file type returned by export dialog.</source>
         <translation>Tipe berkas yang tidak dikenal dikembalikan oleh dialog ekspor.</translation>
-    </message>
-    <message>
-        <source>Display frames grouped by your configured aggregation fields.</source>
-        <oldsource>Aggregation View — displays frames grouped by your configured aggregation fields.</oldsource>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Display frames grouped by your configured aggregation fields. To activate, go to Preferences → Aggregation.</source>
-        <oldsource>Aggregation View — displays frames grouped by your configured aggregation fields. To activate, go to Preferences → Aggregation.</oldsource>
-        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Unsaved packets…</source>

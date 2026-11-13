@@ -431,8 +431,31 @@ background and foreground colors are appended:
   @tcp@tcp@[59345,58980,65534][0,0,0]
   @udp@udp@[28834,57427,65533][0,0,0]
 
-Wireshark will read the legacy __colorfilters__ file if it exists, followed by __coloring_rules.jsonc__.
+Wireshark will read the personal legacy __colorfilters__ file only if the personal __coloring_rules.jsonc__ file does not exist; it is then used on its own, without the global coloring rules.
+If the personal __coloring_rules.jsonc__ file exists but cannot be parsed, an error is reported and none of its rules are used; neither the legacy __colorfilters__ file nor the global coloring rules are read in its place.
 Wireshark will write the legacy __colorfilters__ file only if it exists.
+--
+
+Tagging Rules::
++
+--
+The personal __tagrules.jsonc__ file contains the tagging rules of the current configuration profile.
+It contains an array of named JSON objects with the following key:value pairs:
+
+    [
+        { "Rule name": {
+            "filter": "<display filter string>",
+            "tag": "<emoji or short text>",
+            "url": "<optional URL>",
+            "comment": "<optional comment>",
+            "enabled": "<boolean value>"
+            }
+        }
+    ]
+
+An optional object named __prefs_for_tagging_rules__ holds the tag display preferences.
+The file uses the same directory as the personal preferences file.
+It is written through the menu:View[Tagging Rules...] dialog.
 --
 
 Plugins::

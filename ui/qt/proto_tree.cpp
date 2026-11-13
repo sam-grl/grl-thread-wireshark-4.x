@@ -17,14 +17,16 @@
 #include <epan/print.h>
 #include <epan/epan.h>
 #include <epan/epan_dissect.h>
-#include <epan/color_filters.h>
 #include <epan/dissectors/packet-frame.h>
 #include <epan/tag_rules.h>
+#include <epan/field_urls.h>
 #include <epan/dfilter/dfilter.h>
 #include <epan/cfile.h>
 
 #include <ui/qt/utils/color_utils.h>
+#include <ui/qt/utils/coloring_rule_utils.h>
 #include <ui/qt/utils/font_manager.h>
+#include <ui/qt/utils/theme_manager.h>
 #include <ui/qt/utils/variant_pointer.h>
 #include <ui/qt/utils/wireshark_mime_data.h>
 #include <ui/qt/widgets/drag_label.h>
@@ -37,6 +39,8 @@
 #include <ui/qt/plot_action.h>
 #include <ui/qt/protocol_preferences_menu.h>
 #include <ui/qt/models/pref_models.h>
+#include <ui/qt/models/distribution_model.h>
+#include <ui/simple_dialog.h>
 #include <ui/all_files_wildcard.h>
 #include <ui/urls.h>
 #include "main_application.h"
@@ -48,6 +52,7 @@
 #include <QItemSelectionModel>
 #include <QScrollBar>
 #include <QStack>
+#include <QTimer>
 #include <QUrl>
 #include <QClipboard>
 #include <QWindow>
@@ -71,15 +76,13 @@ ProtoTree::ProtoTree(QWidget *parent, epan_dissect_t *edt_fixed) :
     setHeaderHidden(true);
     setFocusPolicy(Qt::StrongFocus);
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     setAttribute(Qt::WA_MacShowFocusRect, true);
 #endif
 
-    setStyleSheet(QStringLiteral(
-        "QTreeView:item:hover {"
-        "  background-color: %1;"
-        "  color: palette(text);"
-        "}").arg(ColorUtils::hoverBackground().name(QColor::HexArgb)));
+    updateStyleSheet();
+    connect(ThemeManager::instance(), &ThemeManager::themeChanged,
+            this, &ProtoTree::updateStyleSheet);
 
     // Shrink down to a small but nonzero size in the main splitter.
     int one_em = fontMetrics().height();
@@ -111,6 +114,11 @@ ProtoTree::ProtoTree(QWidget *parent, epan_dissect_t *edt_fixed) :
     }
 
     viewport()->installEventFilter(this);
+}
+
+void ProtoTree::updateStyleSheet()
+{
+    setStyleSheet(ColorUtils::itemHoverStyleSheet(QStringLiteral("QTreeView")));
 }
 
 void ProtoTree::clear() {
@@ -236,6 +244,23 @@ void ProtoTree::ctxOpenUrlWiki()
     else
     {
         if (field_id != hf_text_only) {
+            // A user-defined URL (fieldurls file) for the field, or failing that
+            // its protocol, takes precedence over the online field reference.
+            const char *field_abbrev = proto_registrar_get_abbrev(finfo.headerInfo().id);
+            const QByteArray proto_abbrev_utf8 = proto_abbrev.toUtf8();
+            epan_dissect_t *edt = cap_file_ ? cap_file_->edt : edt_;
+            char *field_value = NULL;
+            if (edt && finfo.fieldInfo() && field_url_needs_value(field_abbrev, proto_abbrev_utf8.constData())) {
+                field_value = get_node_field_value(finfo.fieldInfo(), edt);
+            }
+            char *custom_url = field_url_for(field_abbrev, proto_abbrev_utf8.constData(), field_value);
+            g_free(field_value);
+            if (custom_url) {
+                QDesktopServices::openUrl(QUrl(QString::fromUtf8(custom_url)));
+                g_free(custom_url);
+                return;
+            }
+
             url = QString(WS_DOCS_URL "dfref/%1/%2.html")
                 .arg(proto_abbrev[0])
                 .arg(proto_abbrev);
@@ -353,26 +378,18 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
 
     ctx_menu->addMenu(PlotAction::createMenu(finfo->headerInfo(), ctx_menu));
 
-    // Checks for the Distribution menu (enabled according to the AGG_FT value)
-    /* XXX - ensure we are consistent with the Distribution Dialog. Move to a function ? */
+    // Enabled for the field types the Distribution dialog can count.
     bool isDistributable = false;
-    switch(finfo->headerInfo().type) {
-        case FT_IPv4:
-        case FT_IPv6:
-            isDistributable = true;
-            break;
-
-        default:
-            if (FT_IS_STRING(finfo->headerInfo().type) ||
-                FT_IS_INTEGER(finfo->headerInfo().type)) {
-                isDistributable = true;
-            }
-            break;
+    QString abbrev;
+    if (fi && fi->hfinfo) {
+        abbrev = QString::fromUtf8(fi->hfinfo->abbrev);
+        isDistributable = DistributionModel::supportsField(fi->hfinfo);
     }
+    if (abbrev.isEmpty())
+        isDistributable = false;
 
-    /* add Distribution menu */
-    action = ctx_menu->addAction(tr("Distribution…"), [this, finfo]() {
-        emit showDistributionDialog(finfo->headerInfo().abbreviation);
+    action = ctx_menu->addAction(tr("Distribution…"), [this, abbrev]() {
+        emit showDistributionDialog(abbrev);
     });
     action->setEnabled(isDistributable);
 
@@ -428,6 +445,19 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
         {
             const QString proto_field_abbrev = proto_registrar_get_abbrev(finfo->headerInfo().id);
             url.append(QStringLiteral("#%1").arg(proto_field_abbrev));
+        }
+        const char *field_abbrev = proto_registrar_get_abbrev(finfo->headerInfo().id);
+        const QByteArray proto_abbrev_utf8 = proto_abbrev.toUtf8();
+        epan_dissect_t *edt = cap_file_ ? cap_file_->edt : edt_;
+        char *field_value = NULL;
+        if (edt && finfo->fieldInfo() && field_url_needs_value(field_abbrev, proto_abbrev_utf8.constData())) {
+            field_value = get_node_field_value(finfo->fieldInfo(), edt);
+        }
+        char *custom_url = field_url_for(field_abbrev, proto_abbrev_utf8.constData(), field_value);
+        g_free(field_value);
+        if (custom_url) {
+            url = QString::fromUtf8(custom_url);
+            g_free(custom_url);
         }
         action->setProperty("toolTip", url);
     }
@@ -508,13 +538,10 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
         ctx_menu->addSeparator();
     }
 
-    // Add actions for coloring rule fields
-    bool is_color_rule_name = fi && fi->hfinfo &&
-        strcmp(fi->hfinfo->abbrev, "frame.coloring_rule.name") == 0;
-    bool is_color_rule_string = fi && fi->hfinfo &&
-        strcmp(fi->hfinfo->abbrev, "frame.coloring_rule.string") == 0;
-
-    if (is_color_rule_name || is_color_rule_string) {
+    // Add actions for coloring rule entries
+    const QVariant rule_entry_data = index.data(ProtoTreeModel::ColoringRuleEntryRole);
+    if (rule_entry_data.isValid()) {
+        const ColoringRuleEntry rule_entry = rule_entry_data.value<ColoringRuleEntry>();
         // "Coloring Rule Preferences..." positioned right below Protocol Preferences
         ctx_menu->addAction(tr("Coloring Rule Preferences..."), [this]() {
             emit showProtocolPreferences(PrefsModel::typeToString(PrefsModel::Layout));
@@ -527,43 +554,23 @@ void ProtoTree::contextMenuEvent(QContextMenuEvent *event)
                 coloring_rules_action->trigger();
         });
 
-        // Pause/Resume and Resume All (only when multi-color details is enabled)
-        if (prefs.gui_packet_list_multi_color_details) {
-            QString filter_name;
-            if (is_color_rule_name) {
-                filter_name = finfo->toString();
-            } else {
-                // frame.coloring_rule.string: the name field is always the previous sibling
-                QModelIndex nameIdx = index.sibling(index.row() - 1, 0);
-                if (nameIdx.isValid()) {
-                    FieldInformation nameInfo(proto_tree_model_->protoNodeFromIndex(nameIdx), nullptr);
-                    filter_name = nameInfo.toString();
+        if (!rule_entry.name.isEmpty()) {
+            const bool enable = rule_entry.disabled;
+            const QString action_text = enable ? tr("Enable Coloring Rule") : tr("Disable Coloring Rule");
+
+            ctx_menu->addAction(action_text, [this, rule_entry, enable]() {
+                QString err;
+                if (!ColoringRuleUtils::setRuleEnabled(rule_entry, enable, &err)) {
+                    return;
                 }
-            }
-            if (filter_name.startsWith("[PAUSED] ")) {
-                filter_name = filter_name.mid(9);
-            }
-
-            if (!filter_name.isEmpty()) {
-                bool is_paused = color_filter_is_session_disabled(filter_name.toUtf8().constData());
-                QString action_text = is_paused ? tr("Resume Coloring Rule") : tr("Pause Coloring Rule");
-
-                ctx_menu->addAction(action_text, [this, filter_name, is_paused]() {
-                    color_filter_set_session_disabled(filter_name.toUtf8().constData(), !is_paused);
-                    QTimer::singleShot(0, this, [this]() {
-                        emit redissectPacketsRequested();
-                    });
+                if (!err.isEmpty()) {
+                    simple_dialog(ESD_TYPE_ERROR, ESD_BTN_OK, "%s", err.toUtf8().constData());
+                }
+                QTimer::singleShot(0, this, [this]() {
+                    emit redissectPacketsRequested();
                 });
-
-                ctx_menu->addAction(tr("Resume All Coloring Rules"), [this]() {
-                    color_filter_resume_all(NULL);
-                    QTimer::singleShot(0, this, [this]() {
-                        emit redissectPacketsRequested();
-                    });
-                });
-            }
+            });
         }
-
     }
 
     ctx_menu->addSeparator();

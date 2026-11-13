@@ -312,6 +312,8 @@ void PrefsModel::populate()
     appearance_item->prependChild(appearance_subitem);
     appearance_subitem = new PrefsItem(PrefsModel::FontAndColors, appearance_item);
     appearance_item->prependChild(appearance_subitem);
+    appearance_subitem = new PrefsItem(PrefsModel::Fonts, appearance_item);
+    appearance_item->prependChild(appearance_subitem);
     appearance_subitem = new PrefsItem(PrefsModel::WelcomePage, appearance_item);
     appearance_item->prependChild(appearance_subitem);
 
@@ -341,13 +343,14 @@ QString PrefsModel::typeToString(PrefsModelType type)
         case Appearance: typeStr = tr("Appearance"); break;
         case Layout: typeStr = tr("Layout"); break;
         case Columns: typeStr = tr("Columns"); break;
-        case FontAndColors: typeStr = tr("Theme and Font"); break;
+        case FontAndColors: typeStr = tr("Theme"); break;
         case WelcomePage: typeStr = tr("Welcome Page"); break;
         case Capture: typeStr = tr("Capture"); break;
         case Expert: typeStr = tr("Expert"); break;
         case FilterButtons: typeStr = tr("Filter Buttons"); break;
         case RSAKeys: typeStr = tr("RSA Keys"); break;
         case Aggregation: typeStr = tr("Aggregation"); break;
+        case Fonts: typeStr = tr("Fonts"); break;
     }
 
     return typeStr;
@@ -366,7 +369,10 @@ QString PrefsModel::typeToHelp(PrefsModelType type)
             helpStr = QStringLiteral("ChCustPreferencesSection.html#_columns");
             break;
         case FontAndColors:
-            helpStr = QStringLiteral("ChCustPreferencesSection.html#_font_and_colors");
+            helpStr = QStringLiteral("ChCustPreferencesSection.html#ChCustPrefsThemeSection");
+            break;
+        case Fonts:
+            helpStr = QStringLiteral("ChCustPreferencesSection.html#ChCustPrefsFontsSection");
             break;
         case Layout:
             helpStr = QStringLiteral("ChCustPreferencesSection.html#_layout");

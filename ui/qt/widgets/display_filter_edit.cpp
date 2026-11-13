@@ -20,11 +20,13 @@
 
 #include <ui/qt/widgets/display_filter_edit.h>
 #include "filter_dialog.h"
-#include <ui/qt/widgets/stock_icon_tool_button.h>
 #include <ui/qt/widgets/syntax_line_edit.h>
 #include <ui/qt/utils/wireshark_mime_data.h>
 #include <ui/qt/utils/qt_ui_utils.h>
+#include <ui/qt/utils/font_manager.h>
+#include <ui/qt/utils/zoom_scaling.h>
 #include <ui/qt/utils/themes/contrast_adapt_icon.h>
+#include <ui/qt/utils/theme_manager.h>
 #include <ui/qt/models/pref_models.h>
 #include <ui/qt/filter_action.h>
 #include <ui/qt/display_filter_expression_dialog.h>
@@ -37,6 +39,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
+#include <QToolButton>
 #include <QStringListModel>
 #include <QWidget>
 #include <QObject>
@@ -116,30 +119,45 @@ void DisplayFilterEdit::setType(DisplayFilterEditType type)
             "}"
         );
 
-        bookmark_button_ = new StockIconToolButton(this, "bookmark-display");
+        bookmark_button_ = new QToolButton(this);
+        bookmark_button_->setIcon(ContrastAdaptIcon("bookmark-display"));
+        bookmark_button_->setCursor(Qt::ArrowCursor);
         bookmark_button_->setMenu(new QMenu(bookmark_button_));
         bookmark_button_->setPopupMode(QToolButton::InstantPopup);
         bookmark_button_->setToolTip(tr("Manage saved bookmarks."));
-        bookmark_button_->setIconSize(QSize(14, 14));
         bookmark_button_->setStyleSheet(buttonStyle);
         bookmark_button_->setVisible(false);
 
-        clear_button_ = new StockIconToolButton(this);
+        clear_button_ = new QToolButton(this);
+        clear_button_->setCursor(Qt::ArrowCursor);
         clear_button_->setIcon(ContrastAdaptIcon("filter-clear"));
         clear_button_->setToolTip(tr("Clear display filter"));
-        clear_button_->setIconSize(QSize(14, 14));
         clear_button_->setStyleSheet(buttonStyle);
         clear_button_->setVisible(false);
 
-        apply_button_ = new StockIconToolButton(this);
+        apply_button_ = new QToolButton(this);
+        apply_button_->setCursor(Qt::ArrowCursor);
         apply_button_->setIcon(ContrastAdaptIcon("filter-apply"));
         apply_button_->setToolTip(tr("Apply display filter"));
-        apply_button_->setIconSize(QSize(24, 14));
         apply_button_->setStyleSheet(buttonStyle);
         apply_button_->setVisible(false);
 
-        connect(clear_button_, &StockIconToolButton::clicked, this, &DisplayFilterEdit::clearFilter);
-        connect(apply_button_, &StockIconToolButton::clicked, this, &DisplayFilterEdit::applyDisplayFilter);
+        // The icons are 14x14 (apply 21x14) at zoom level 0. The button size
+        // hints change with them, and the style sheet derives from those.
+        auto update_icon_sizes = [this]() {
+            const QSize square(ZoomScaling::scaledPixels(14), ZoomScaling::scaledPixels(14));
+            bookmark_button_->setIconSize(square);
+            clear_button_->setIconSize(square);
+            apply_button_->setIconSize(QSize(ZoomScaling::scaledPixels(21), ZoomScaling::scaledPixels(14)));
+        };
+        update_icon_sizes();
+        connect(FontManager::instance(), &FontManager::zoomChanged, this, [this, update_icon_sizes]() {
+            update_icon_sizes();
+            alignActionButtons();
+        });
+
+        connect(clear_button_, &QToolButton::clicked, this, &DisplayFilterEdit::clearFilter);
+        connect(apply_button_, &QToolButton::clicked, this, &DisplayFilterEdit::applyDisplayFilter);
         connect(this, &DisplayFilterEdit::returnPressed, this, &DisplayFilterEdit::applyDisplayFilter);
     } else if (apply_button_) {
         disconnect(this, &DisplayFilterEdit::returnPressed, this, &DisplayFilterEdit::applyDisplayFilter);
@@ -308,8 +326,8 @@ void DisplayFilterEdit::paintEvent(QPaintEvent *evt) {
 
         // Draw the borders by hand. We could try to do this in the
         // style sheet but it's a pain.
-#ifdef Q_OS_MAC
-        QColor divider_color = Qt::gray;
+#ifdef Q_OS_MACOS
+        QColor divider_color = ThemeManager::instance()->color(ThemeManager::FieldBorder);
 #else
         QColor divider_color = palette().shadow().color();
 #endif
@@ -414,7 +432,7 @@ void DisplayFilterEdit::checkFilter(const QString& filter_text)
 
     if (bookmark_button_) {
 
-        bookmark_button_->setIconByName("bookmark-match");
+        bookmark_button_->setIcon(ContrastAdaptIcon("bookmark-match"));
         if (remove_action_ && save_action_)
         {
             remove_action_->setEnabled(false);
@@ -431,13 +449,13 @@ void DisplayFilterEdit::checkFilter(const QString& filter_text)
             if (idx.isValid()) {
                 match = true;
 
-                bookmark_button_->setIconByName("bookmark-match");
+                bookmark_button_->setIcon(ContrastAdaptIcon("bookmark-match"));
                 if (remove_action_) {
                     remove_action_->setData(text());
                     remove_action_->setEnabled(true);
                 }
             } else {
-                bookmark_button_->setIconByName("bookmark-display");
+                bookmark_button_->setIcon(ContrastAdaptIcon("bookmark-display"));
                 if (remove_action_) {
                     remove_action_->setEnabled(false);
                 }

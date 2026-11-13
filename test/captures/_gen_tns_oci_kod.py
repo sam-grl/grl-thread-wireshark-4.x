@@ -8,7 +8,7 @@
 """Generate test/captures/tns_oci_kod.pcap: an OCI client (sqlplus 23.26)
 describing an object type with TTI_KOD (function 92), as it does for
 DBMSOUTPUT_LINESARRAY under "set serveroutput on". The message bodies
-are the ones captured off a live 11g and 18c in seerdb's protocol notes.
+are the ones captured off a live 11g and 18c.
 
     Frame 1 - by name: opcode 3, "DBMSOUTPUT_LINESARRAY"
     Frame 2 - the reply: the name header (schema PYO, the type's REF),
@@ -21,6 +21,9 @@ are the ones captured off a live 11g and 18c in seerdb's protocol notes.
     Frames 5 to 8 - the same at the 12c band, on a second connection: the
               header four bytes longer, the record's descriptor a bare 35
               bytes, the status 144 bytes
+    Frame 9 - by name with a schema, as sqlplus asks for SYS.XMLTYPE on a
+              third connection: the schema's buffer length is 9, and the
+              schema follows behind its length byte
 """
 import os
 import struct
@@ -123,6 +126,13 @@ KOTTD_REPLY_18C = bytes.fromhex(
     '0000000000000000000000000000000000000000000000000000000000000000'
 )
 
+# The frame of BY_NAME_REQUEST_11G, then ub4 2, the schema's buffer length
+# and the schema, ub4 0, the name's buffer length and the name.
+BY_NAME_SCHEMA_REQUEST = (BY_NAME_REQUEST_11G[:99]
+                          + struct.pack("<II", 2, 9) + b"\x03SYS"
+                          + struct.pack("<II", 0, 21) + b"\x07XMLTYPE"
+                          + bytes.fromhex("000000000001"))
+
 frames = [
     (0, True, BY_NAME_REQUEST_11G),
     (0, False, BY_NAME_REPLY_11G),
@@ -132,6 +142,7 @@ frames = [
     (1, False, BY_NAME_REPLY_18C),
     (1, True, KOTTD_REQUEST_18C),
     (1, False, KOTTD_REPLY_18C),
+    (2, True, BY_NAME_SCHEMA_REQUEST),
 ]
 
 
@@ -156,7 +167,8 @@ def tcp_checksum(src: bytes, dst: bytes, seg: bytes) -> int:
     return (~s) & 0xFFFF
 
 
-CLIENTS = [(bytes([10, 0, 0, 1]), 54321), (bytes([10, 0, 0, 1]), 54322)]
+CLIENTS = [(bytes([10, 0, 0, 1]), 54321), (bytes([10, 0, 0, 1]), 54322),
+           (bytes([10, 0, 0, 1]), 54323)]
 SERVER = (bytes([10, 0, 0, 2]), 1521)
 
 
@@ -179,7 +191,7 @@ with open(out, "wb") as f:
     # Cumulative TCP sequence numbers per connection and direction, so a
     # smaller follow-on frame is not read as a retransmission and dropped
     # before TNS sees it.
-    seq = {(c, d): 1 for c in (0, 1) for d in (True, False)}
+    seq = {(c, d): 1 for c in range(len(CLIENTS)) for d in (True, False)}
     for i, (conn, to_server, body) in enumerate(frames):
         pkt = wrap(conn, body, to_server, seq[conn, to_server], seq[conn, not to_server], i + 1)
         seq[conn, to_server] += len(body) + 10

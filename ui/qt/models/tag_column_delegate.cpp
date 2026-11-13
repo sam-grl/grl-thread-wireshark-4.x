@@ -11,9 +11,12 @@
  */
 
 #include "tag_column_delegate.h"
+#include "multi_color_packet_delegate.h"
 #include "packet_list_record.h"
 
 #include <epan/tag_rules.h>
+
+#include <ui/qt/utils/themes/color_math.h>
 
 #include <QApplication>
 #include <QDesktopServices>
@@ -37,7 +40,7 @@ struct TagSeg {
 static int emojiPixelSize(const QStyleOptionViewItem &option) {
     tag_prefs_t prefs = tag_rules_get_prefs();
     int pct = (prefs.emoji_size > 0) ? prefs.emoji_size : 100;
-    int row_h = option.rect.height() > 0 ? option.rect.height() : 16;
+    int row_h = option.rect.height() > 0 ? option.rect.height() : option.fontMetrics.height();
     return qMax(1, row_h * pct / 100);
 }
 
@@ -133,12 +136,22 @@ static QList<TagSeg> segmentsFromIndex(const QModelIndex &index)
 
 TagColumnDelegate::TagColumnDelegate(QWidget *parent)
     : QStyledItemDelegate(parent)
+    , multi_color_delegate_(nullptr)
 {
 }
 
 void TagColumnDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
                               const QModelIndex &index) const
 {
+    // Rows with several matching coloring rules get this cell's slice of the
+    // row-wide multi-color pattern rather than the model's single
+    // BackgroundRole color.
+    if (multi_color_delegate_ &&
+        multi_color_delegate_->paintMultiColorBackground(painter, option, index)) {
+        paintContent(painter, option, index);
+        return;
+    }
+
     QStyleOptionViewItem bg_option = option;
     initStyleOption(&bg_option, index);
     bg_option.text.clear();
@@ -167,7 +180,17 @@ void TagColumnDelegate::paintContent(QPainter *painter, const QStyleOptionViewIt
 
     painter->save();
     painter->setClipRect(option.rect);
-    painter->setPen(Qt::black);
+    QColor text_color = option.palette.color(QPalette::Text);
+    if (option.state & QStyle::State_Selected) {
+        text_color = option.palette.color(QPalette::HighlightedText);
+    } else {
+        // The model's foreground role carries the coloring rule's text color.
+        const QVariant fg = index.data(Qt::ForegroundRole);
+        if (fg.canConvert<QBrush>() && fg.value<QBrush>().style() != Qt::NoBrush) {
+            text_color = fg.value<QBrush>().color();
+        }
+    }
+    painter->setPen(text_color);
     for (int i = 0; i < runs.size(); i++) {
         QFont f = fontForRun(runs.at(i), option);
         painter->setFont(f);

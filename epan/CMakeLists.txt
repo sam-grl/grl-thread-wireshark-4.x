@@ -70,6 +70,7 @@ set(LIBWIRESHARK_PUBLIC_HEADERS
 	export_object.h
 	exported_pdu.h
 	fifo_string_cache.h
+	field_urls.h
 	filter_expressions.h
 	aggregation_fields.h
 	follow.h
@@ -174,6 +175,7 @@ set(LIBWIRESHARK_NONGENERATED_FILES
 	exported_pdu.c
 	fifo_string_cache.c
 	file_packet_provider.c
+	field_urls.c
 	filter_expressions.c
 	aggregation_fields.c
 	follow.c
@@ -297,13 +299,13 @@ endif()
 target_link_libraries(epan
 	PUBLIC
 		wsutil
-		${GLIB2_LIBRARIES}
+		GLib2::GLib2
 	PRIVATE
 		wiretap
 		LibXml2::LibXml2
 		${BROTLI_LIBRARIES}
 		${CARES_LIBRARIES}
-		${GCRYPT_LIBRARIES}
+		GCrypt::GCrypt
 		${GIO2_LIBRARIES}
 		${GNUTLS_LIBRARIES}
 		${KERBEROS_LIBRARIES}
@@ -325,16 +327,14 @@ target_link_libraries(epan
 target_include_directories(epan
 	INTERFACE
 		$<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}>
-		$<INSTALL_INTERFACE:include/wireshark>
+		$<INSTALL_INTERFACE:${PROJECT_INSTALL_INCLUDEDIR}>
 )
 
 target_include_directories(epan
 	SYSTEM PRIVATE
 		${BROTLI_INCLUDE_DIRS}
 		${CARES_INCLUDE_DIRS}
-		${GCRYPT_INCLUDE_DIRS}
 		${KERBEROS_INCLUDE_DIRS}
-		${GLIB2_INCLUDE_DIRS}
 		${GNUTLS_INCLUDE_DIRS}
 		${LUA_INCLUDE_DIRS}
 		${NGHTTP2_INCLUDE_DIRS}

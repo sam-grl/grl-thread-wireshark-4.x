@@ -25,6 +25,7 @@
 #include "main_application.h"
 
 #include "ui/qt/utils/qt_ui_utils.h"
+#include <ui/qt/utils/themes/themed_icon.h>
 #include "ui/qt/widgets/copy_from_profile_button.h"
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 
@@ -54,12 +55,12 @@ TaggingRulesDialog::TaggingRulesDialog(QWidget *parent) :
         ui->taggingRulesTreeView->resizeColumnToContents(i);
     }
 
-    ui->newToolButton->setIconByName("list-add");
-    ui->deleteToolButton->setIconByName("list-remove");
-    ui->copyToolButton->setIconByName("list-copy");
-    ui->clearToolButton->setIconByName("list-clear");
+    ui->newToolButton->setIcon(ThemedIcon("list-add"));
+    ui->deleteToolButton->setIcon(ThemedIcon("list-remove"));
+    ui->copyToolButton->setIcon(ThemedIcon("list-copy"));
+    ui->clearToolButton->setIcon(ThemedIcon("list-clear"));
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     ui->newToolButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->deleteToolButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->copyToolButton->setAttribute(Qt::WA_MacSmallSize, true);
@@ -80,7 +81,7 @@ TaggingRulesDialog::TaggingRulesDialog(QWidget *parent) :
     originalPrefs_ = tag_rules_get_prefs();
     pendingPrefs_  = originalPrefs_;
     // combobox index 0 = Ctrl+Shift+Click, 1 = Click, 2 = Right-click only
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     ui->linkClickComboBox->setItemText(0, tr("Shift+Command+Click"));
 #endif
     int clickIdx = 0;
@@ -139,7 +140,7 @@ TaggingRulesDialog::TaggingRulesDialog(QWidget *parent) :
         ui->pathLabel->setToolTip(tr("Open ") + TAGRULES_FILE_NAME);
         ui->pathLabel->setEnabled(true);
     } else {
-        ui->pathLabel->setText(tr("(no tagrules file yet — will be created on save)"));
+        ui->pathLabel->setText(tr("(no tagrules.jsonc file yet — will be created on save)"));
         ui->pathLabel->setEnabled(false);
     }
 

@@ -99,6 +99,7 @@ endif()
     scap
     scap_engine_nodriver
     scap_engine_noop
+    scap_engine_raw_block
     scap_engine_savefile
     scap_engine_source_plugin
     scap_engine_test_input
@@ -314,13 +315,22 @@ mark_as_advanced(SINSP_INCLUDE_DIRS SINSP_LINK_LIBRARIES SINSP_DEBUG_LINK_LIBRAR
 
 # Windows plugins
 
+# FALCO_PLUGIN_DIR might be a native path, e.g. from an environment variable
+# on Windows. Backslashes in it would be taken as escapes in the generated
+# install script.
+if(FALCO_PLUGIN_DIR)
+  file(TO_CMAKE_PATH "${FALCO_PLUGIN_DIR}" FALCO_PLUGIN_DIR)
+endif()
+
 set(_falco_plugins)
-if(WIN32 AND SINSP_FOUND AND NOT FALCO_PLUGINS)
+if(WIN32 AND SINSP_FOUND)
+  # Do this even if FALCO_PLUGINS is set, so that FindWSWinLibs clears it
+  # if it holds paths to another version of the plugins.
   FindWSWinLibs( "falcosecurity-plugins-.*" _falco_plugin_dir)
-  if(_falco_plugin_dir)
+  if(_falco_plugin_dir AND NOT FALCO_PLUGINS)
     file( GLOB _falco_plugins LIST_DIRECTORIES false "${_falco_plugin_dir}/*.dll" )
-    unset(_falco_plugin_dir)
   endif()
+  unset(_falco_plugin_dir)
 endif()
 
 # XXX It looks like we can either autodiscover this value or provide an option but not both.

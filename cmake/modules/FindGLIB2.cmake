@@ -5,6 +5,7 @@
 #  GLIB2_FOUND           - system has glib2
 #  GLIB2_INCLUDE_DIRS    - the glib2 include directory
 #  GLIB2_LIBRARIES       - glib2 library
+#  GLib2::GLib2          - IMPORTED target for GLib
 #  GLIB2_DLL_DIR_DEBUG   - (Windows) Path to required GLib2 DLLs in debug build.
 #  GLIB2_DLL_DIR_RELEASE - (Windows) Path to required GLib2 DLLs in release builds.
 #  GLIB2_DLLS_DEBUG      - (Windows) List of required GLib2 DLLs in debug builds.
@@ -22,6 +23,11 @@ if( GLIB2_MAIN_INCLUDE_DIR AND GLIB2_LIBRARIES )
 endif()
 
 include( FindWSWinLibs )
+# The DLL and PDB variables used to be cache entries. Remove those so that
+# they can't be used if the package isn't found.
+foreach(_var GLIB2_DLL_DIR_RELEASE GLIB2_DLL_DIR_DEBUG GLIB2_DLLS_RELEASE GLIB2_DLLS_DEBUG GLIB2_PDBS_RELEASE GLIB2_PDBS_DEBUG)
+	unset(${_var} CACHE)
+endforeach()
 FindWSWinLibs( "glib-bundle-*" "GLIB2_HINTS" )
 
 if (NOT USE_REPOSITORY)
@@ -149,13 +155,23 @@ if( GLIB2_FOUND )
 		endif()
 	endif()
 	set( GLIB2_INCLUDE_DIRS ${GLIB2_MAIN_INCLUDE_DIR} ${GLIB2_INTERNAL_INCLUDE_DIR} )
+
+	# For static linking, link to the transitive dependencies added above.
+	list(LENGTH GLIB2_LIBRARY _glib2_library_length)
+	list(LENGTH GLIB2_LIBRARIES _glib2_libraries_length)
+	set(_glib2_link_libraries)
+	if(_glib2_libraries_length GREATER _glib2_library_length)
+		list(SUBLIST GLIB2_LIBRARIES ${_glib2_library_length} -1 _glib2_link_libraries)
+	endif()
+	ws_add_imported_library(GLib2::GLib2 GLIB2_LIBRARY
+		DLL "glib-2.0-0"
+		INCLUDE_DIRS ${GLIB2_INCLUDE_DIRS}
+		LINK_LIBRARIES ${_glib2_link_libraries}
+	)
+
 	if ( USE_REPOSITORY AND GLIB2_FOUND )
-		set ( GLIB2_DLL_DIR_RELEASE "${GLIB2_HINTS}/bin"
-			CACHE PATH "Path to GLib2 release DLLs"
-		)
-		set ( GLIB2_DLL_DIR_DEBUG "${GLIB2_HINTS}/debug/bin"
-			CACHE PATH "Path to GLib2 debug DLLs"
-		)
+		set(GLIB2_DLL_DIR_RELEASE "${GLIB2_HINTS}/bin")
+		set(GLIB2_DLL_DIR_DEBUG "${GLIB2_HINTS}/debug/bin")
 
 		# GTK+ required GObject and GIO. We probably don't.
 		file( GLOB _glib2_dlls_release RELATIVE "${GLIB2_DLL_DIR_RELEASE}"
@@ -170,10 +186,7 @@ if( GLIB2_FOUND )
 			"${GLIB2_DLL_DIR_RELEASE}/iconv-2.dll"
 			"${GLIB2_DLL_DIR_RELEASE}/intl-8.dll"
 		)
-		set ( GLIB2_DLLS_RELEASE ${_glib2_dlls_release}
-			# We're storing filenames only. Should we use STRING instead?
-			CACHE FILEPATH "GLib 2 release DLL list"
-		)
+		set(GLIB2_DLLS_RELEASE ${_glib2_dlls_release})
 		file( GLOB _glib2_dlls_debug RELATIVE "${GLIB2_DLL_DIR_DEBUG}"
 			# "${GLIB2_DLL_DIR_DEBUG}/gio-2.0-0.dll"
 			"${GLIB2_DLL_DIR_DEBUG}/glib-2.0-0.dll"
@@ -186,10 +199,7 @@ if( GLIB2_FOUND )
 			"${GLIB2_DLL_DIR_DEBUG}/iconv-2.dll"
 			"${GLIB2_DLL_DIR_DEBUG}/intl-8.dll"
 		)
-		set ( GLIB2_DLLS_DEBUG ${_glib2_dlls_debug}
-			# We're storing filenames only. Should we use STRING instead?
-			CACHE FILEPATH "GLib 2 debug DLL list"
-		)
+		set(GLIB2_DLLS_DEBUG ${_glib2_dlls_debug})
 
 		file( GLOB _glib2_pdbs_release RELATIVE "${GLIB2_DLL_DIR_RELEASE}"
 			"${GLIB2_DLL_DIR_RELEASE}/glib-2.0-0.pdb"
@@ -199,9 +209,7 @@ if( GLIB2_FOUND )
 			# "${GLIB2_DLL_DIR_RELEASE}/libiconv.pdb"
 			# "${GLIB2_DLL_DIR_RELEASE}/libintl.pdb"
 		)
-		set ( GLIB2_PDBS_RELEASE ${_glib2_pdbs_release}
-			CACHE FILEPATH "GLib2 debug release PDB list"
-		)
+		set(GLIB2_PDBS_RELEASE ${_glib2_pdbs_release})
 		file( GLOB _glib2_pdbs_debug RELATIVE "${GLIB2_DLL_DIR_DEBUG}"
 			"${GLIB2_DLL_DIR_DEBUG}/glib-2.0-0.pdb"
 			"${GLIB2_DLL_DIR_DEBUG}/gmodule-2.0-0.pdb"
@@ -210,12 +218,11 @@ if( GLIB2_FOUND )
 			# "${GLIB2_DLL_DIR_DEBUG}/libiconv.pdb"
 			# "${GLIB2_DLL_DIR_DEBUG}/libintl.pdb"
 		)
-		set ( GLIB2_PDBS_DEBUG ${_glib2_pdbs_debug}
-			CACHE FILEPATH "GLib2 debug debug PDB list"
-		)
+		set(GLIB2_PDBS_DEBUG ${_glib2_pdbs_debug})
 
-		mark_as_advanced( GLIB2_DLL_DIR_RELEASE GLIB2_DLLS_RELEASE GLIB2_PDBS_RELEASE )
-		mark_as_advanced( GLIB2_DLL_DIR_DEBUG GLIB2_DLLS_DEBUG GLIB2_PDBS_DEBUG )
+		list(TRANSFORM GLIB2_DLLS_RELEASE PREPEND "${GLIB2_DLL_DIR_RELEASE}/" OUTPUT_VARIABLE _glib2_release_dlls)
+		list(TRANSFORM GLIB2_DLLS_DEBUG PREPEND "${GLIB2_DLL_DIR_DEBUG}/" OUTPUT_VARIABLE _glib2_debug_dlls)
+		ws_add_runtime_dlls(${_glib2_release_dlls} DEBUG ${_glib2_debug_dlls})
 	endif()
 elseif( GLIB2_FIND_REQUIRED )
 	message( SEND_ERROR "Package required but not found" )

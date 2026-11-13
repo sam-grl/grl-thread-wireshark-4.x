@@ -85,7 +85,7 @@ InterfaceFrame::InterfaceFrame(QWidget * parent)
 
     ui->warningLabel->hide();
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     ui->interfaceTree->setAttribute(Qt::WA_MacShowFocusRect, false);
 #endif
 
@@ -161,7 +161,8 @@ InterfaceFrame::InterfaceFrame(QWidget * parent)
     // The extcap-config decoration is a ContrastAdaptIcon; as the consuming view
     // the tree scales its icons with the application zoom level.
     auto applyIconSize = [this]() {
-        const int s = qRound(style()->pixelMetric(QStyle::PM_SmallIconSize) * FontManager::zoomFactor());
+        // The style's icon metric already follows the zoom.
+        const int s = style()->pixelMetric(QStyle::PM_SmallIconSize);
         ui->interfaceTree->setIconSize(QSize(s, s));
     };
     applyIconSize();
@@ -301,6 +302,11 @@ void InterfaceFrame::toggleHiddenInterfaces()
     source_model_.interfaceListChanged();
     proxy_model_.toggleFilterHidden();
 
+    // Let subscribers such as InterfaceToolbar re-read the interface list.
+    MainWindow *mainWindow = mainApp->mainWindow();
+    if (mainWindow && mainWindow->interfaceListManager())
+        mainWindow->interfaceListManager()->notifyListChanged();
+
     emit typeSelectionChanged();
 }
 
@@ -362,7 +368,7 @@ void InterfaceFrame::resetInterfaceTreeDisplay()
 
     if (!haveLocalCapturePermissions())
     {
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
         //
         // NOTE: if you change this text, you must also change the
         // definition of PLATFORM_PERMISSIONS_SUGGESTION that is
@@ -471,7 +477,7 @@ void InterfaceFrame::resizeEvent(QResizeEvent *evt)
 // XXX Should this be in capture/capture-pcap-util.[ch]?
 bool InterfaceFrame::haveLocalCapturePermissions() const
 {
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     if (application_flavor_is_wireshark()) {
         QFileInfo bpf0_fi = QFileInfo("/dev/bpf0");
         return bpf0_fi.isReadable() && bpf0_fi.isWritable();

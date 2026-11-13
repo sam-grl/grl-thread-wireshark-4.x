@@ -14,6 +14,15 @@
     Frame 2 - the narrow preamble (4-byte slots) of a 23.26 sqlplus on
               cursor 5 with one bind: indicators at 11 and 23, bind count
               at 71, SQL at 176
+    Frames 3-4 - the same narrow INSERT with SET AUTOCOMMIT OFF and then
+              ON: the options word at 3 differs in the commit bit (0x100)
+              alone
+    Frame 5 - "print rc": an execute of REF CURSOR 0x100 by its id, with
+              options 0x40 and no SQL, so no pointer at 11; the rows
+              sqlplus has room for (15) sit at 243, as in the 12c band
+    Frame 6 - a TTI_REEXECUTE of cursor 4, once, as sqlplus fetches the
+              next SERVEROUTPUT batch: eight zero bytes, then the RXD row
+              of :NUMLINES (15)
 
 Offsets count from the TTI_FUN byte. The slots not named here are zero.
 Bytes are built by hand.
@@ -31,6 +40,7 @@ TTI_STA = 9
 TTI_IOV = 11
 TTI_DCB = 16
 TTI_ALL8 = 94
+TTI_REEXECUTE = 4
 
 # Oracle datatype codes.
 TYPE_VARCHAR = 1
@@ -148,10 +158,11 @@ import struct as _s
 IND = bytes.fromhex("feffffffffffffff")
 
 
-def oci_all8(seq, cursor, sql, binds, wide):
+def oci_all8(seq, cursor, sql, binds, wide, options=0):
     ind2, bind_off, sql_off = (27, 83, 196) if wide else (23, 71, 176)
     b = bytearray(sql_off + len(sql))
     b[0:3] = bytes([TTI_FUN, TTI_ALL8, seq])
+    b[3:7] = _s.pack("<I", options)
     b[7:11] = _s.pack("<I", cursor)
     b[11:19] = IND
     b[19:23] = _s.pack("<I", 3 * len(sql))
@@ -162,9 +173,23 @@ def oci_all8(seq, cursor, sql, binds, wide):
     return bytes(b)
 
 
+def oci_all8_by_id(seq, cursor, options):
+    b = bytearray(247)
+    b[0:3] = bytes([TTI_FUN, TTI_ALL8, seq])
+    b[3:7] = _s.pack("<I", options)
+    b[7:11] = _s.pack("<I", cursor)
+    b[243:247] = _s.pack("<I", 15)
+    return bytes(b)
+
+
 frames = [
     (True, oci_all8(4, 0, b"SELECT * FROM DUAL", 0, True)),
     (True, oci_all8(6, 5, b"SELECT :v FROM DUAL", 1, False)),
+    (True, oci_all8(7, 0, b"INSERT INTO T VALUES (1)", 0, False, 0x8021)),
+    (True, oci_all8(8, 0, b"INSERT INTO T VALUES (1)", 0, False, 0x8121)),
+    (True, oci_all8_by_id(9, 0x100, 0x40)),
+    (True, bytes([TTI_FUN, TTI_REEXECUTE, 10]) + _s.pack("<II", 4, 1) + bytes(8)
+           + bytes.fromhex("0702c110")),
 ]
 
 

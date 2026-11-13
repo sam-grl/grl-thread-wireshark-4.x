@@ -11,20 +11,21 @@
 #define THEME_PALETTE_BUILDER_H
 
 #include <ui/qt/utils/theme_manager.h>
+#include <ui/qt/utils/themes/color_math.h>
 
 #include <QHash>
 #include <QPalette>
 #include <QString>
 
 /**
- * Builds the `QApplication::palette()` from the current theme's token
- * map and mode, and pushes it via `QApplication::setPalette()`.
+ * Builds the application palette from the current theme's token map and
+ * mode; ThemeManager pushes it via `QApplication::setPalette()`.
  *
  * The baseline palette comes from:
  *
  *   - macOS (any supported Qt) and Windows on Qt ≥ 6.8: a caller-
- *     supplied `osBaseline` snapshot.  ThemeManager captures this from
- *     the platform style at construction time (when the palette is
+ *     supplied `osBaseline` snapshot.  ThemeManager captures the
+ *     platform palette at construction time (when the palette is
  *     pristine) and refreshes it whenever the effective scheme flips.
  *     Reading `QApplication::palette()` here would be wrong: once the
  *     builder has pushed any palette via `setPalette()`, subsequent
@@ -42,14 +43,23 @@
  *     platforms.
  *
  * Theme-provided palette overrides (the `palette:` section of
- * `theme.jsonc`) are applied on top of the baseline.  Brand-driven
- * roles (`Highlight`, `Link`, `Accent`, `HighlightedText`) are always
- * overlaid last, so themes don't need to set them.
+ * `theme.jsonc`) are applied on top of the baseline.  The selection
+ * roles (`Highlight`, `HighlightedText`, `Link`) and `Accent` are
+ * overlaid last, so themes don't need to set them: Highlight resolves to
+ * `palette.highlight`, else `packets.selection`, else `brand.primary`;
+ * HighlightedText is derived from it unless pinned; Link follows it;
+ * Accent is `brand.primary`.
  */
 class ThemePaletteBuilder
 {
 public:
     using TokenMap = QHash<ThemeManager::ThemeToken, ThemeColorPair>;
+
+    /**
+     * The palette role the Link role is derived from in build().  Code that
+     * traces a link color back to a theme token starts from this role.
+     */
+    static constexpr QPalette::ColorRole kLinkSourceRole = QPalette::Highlight;
 
     /**
      * Build and return the full QPalette from the token map without
@@ -70,22 +80,21 @@ public:
      *                          ThemeManager; used as the baseline on
      *                          macOS and Windows Qt ≥ 6.8.  Ignored on
      *                          Linux and Windows Qt < 6.8.
+     * @param ratios            The contrast ratio set derived roles
+     *                          (HighlightedText, Link) are lifted to.
+     * @param sources           When not null, receives the rule text (untranslated,
+     *                          QT_TRANSLATE_NOOP in the "ThemeTokenHandler" context)
+     *                          of the roles build() resolves itself, Highlight and
+     *                          HighlightedText, while brand.primary is declared.
+     *                          Same type as ThemeTokenHandler::SourceMap.
      */
     static QPalette build(const TokenMap                                     &tokens,
                           bool                                                isDarkMode,
                           const QHash<QString, ThemeManager::ThemeToken>     &tokenNameCache,
                           const QHash<QString, QPalette::ColorRole>          &paletteRoleCache,
-                          const QPalette                                     &osBaseline);
-
-    /**
-     * Convenience wrapper: calls build() and pushes the result via
-     * `QApplication::setPalette()`.
-     */
-    static void apply(const TokenMap                                     &tokens,
-                      bool                                                isDarkMode,
-                      const QHash<QString, ThemeManager::ThemeToken>     &tokenNameCache,
-                      const QHash<QString, QPalette::ColorRole>          &paletteRoleCache,
-                      const QPalette                                     &osBaseline);
+                          const QPalette                                     &osBaseline,
+                          const ColorMath::ContrastRatios                    &ratios,
+                          QHash<ThemeManager::ThemeToken, const char *>      *sources = nullptr);
 
     /**
      * Built-in dark QPalette used as the baseline on non-macOS

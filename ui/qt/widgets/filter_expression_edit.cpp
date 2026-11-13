@@ -15,7 +15,7 @@
 #include <ui/qt/models/filter_history_model.h>
 #include <ui/qt/models/bookmark_model.h>
 #include <ui/qt/utils/font_manager.h>
-#include <ui/qt/utils/stock_icon.h>
+#include <ui/qt/utils/zoom_scaling.h>
 #include <ui/qt/utils/theme_manager.h>
 #include <ui/qt/utils/themes/themed_icon.h>
 #include <ui/qt/utils/themes/contrast_adapt_icon.h>
@@ -54,8 +54,9 @@ public:
         QWidget(parent)
     {
         QHBoxLayout *layout = new QHBoxLayout(this);
-        layout->setContentsMargins(12, 3, 12, 3);
-        layout->setSpacing(18);
+        layout->setContentsMargins(ZoomScaling::scaledPixels(12), ZoomScaling::scaledPixels(3),
+                                   ZoomScaling::scaledPixels(12), ZoomScaling::scaledPixels(3));
+        layout->setSpacing(ZoomScaling::scaledPixels(18));
 
         // Monospace expression, sized to match the surrounding menu text.
         QLabel *expr_label = new QLabel(expr, this);
@@ -184,8 +185,8 @@ FilterExpressionEdit::FilterExpressionEdit(QWidget *parent) :
     clear_button_ = new AdaptiveToolButton(this);
     clear_button_->setIconPadding(1);
     clear_button_->setBaseIconSize(QSize(14, 14));
-    // Neutral grey at rest, red on hover/press — carried by the icon's own
-    // <ws:swap> state contract in filter-clear.svg, contrast-adapted to the field.
+    // Neutral grey at rest, the theme's FilterClear on hover/press. The SVG's
+    // <ws:map-token> carries this, and both are contrast-adapted to the field.
     clear_button_->setIcon(ContrastAdaptIcon(QStringLiteral(":/svg_icons/filter-clear.svg"),
                                              QPalette::Base));
     clear_button_->setToolTip(tr("Clear the filter"));
@@ -196,20 +197,21 @@ FilterExpressionEdit::FilterExpressionEdit(QWidget *parent) :
         emit cleared();
     });
 
-    // Blue when there is something to apply (item 6). The state tint stays in
-    // the text area (paintEvent fences the icon strips with the neutral field
-    // bg), so the blue glyph reads as its own affordance rather than clashing
-    // with a green "valid" field. Disabled (nothing to apply) dims via the
-    // engine's Disabled mode.
+    // Painted with the theme's FilterApply when there is something to apply.
+    // The state tint stays in the text area (paintEvent fences the
+    // icon strips with the neutral field bg), so the glyph reads as its own
+    // affordance rather than clashing with a green "valid" field. Disabled
+    // (nothing to apply) dims via the engine's Disabled mode.
     apply_button_ = new AdaptiveToolButton(this);
     apply_button_->setIconPadding(1);
     apply_button_->setIcon(ContrastAdaptIcon(QStringLiteral(":/svg_icons/filter-apply.svg"),
                                              QPalette::Base));
     apply_button_->setToolTip(tr("Apply this filter"));
-    // The apply glyph is a wide 24x14 chevron (its native SVG size); set that
-    // fixed so a square box doesn't squeeze it short. AdaptiveToolButton scales
-    // width and height independently, so the 24:14 aspect holds under zoom.
-    apply_button_->setBaseIconSize(QSize(24, 14));
+    // The apply glyph is a wide 36x24 arrow (its native SVG size). Set a fixed
+    // base icon size with the correct (3:2) aspect ratio and height so that a
+    // square box doesn't squeeze it short. AdaptiveToolButton scales its width
+    // and height independently, so the 3:2 aspect ratio holds under zoom.
+    apply_button_->setBaseIconSize(QSize(21, 14));
     apply_button_->setVisible(false);
     connect(apply_button_, &QAbstractButton::clicked, this, &FilterExpressionEdit::applyExpression);
 
@@ -221,7 +223,7 @@ FilterExpressionEdit::FilterExpressionEdit(QWidget *parent) :
     // Fixed, like the other glyphs, rather than derived from a style metric:
     // PM_MenuButtonIndicator (12px in QCommonStyle) is 20px on Breeze, which
     // made the box far wider than the caret drawn in it.
-    history_button_->setBaseIconSize(QSize(24, 24));
+    history_button_->setBaseIconSize(QSize(14, 14));
     history_button_->setVisible(false);
     connect(history_button_, &QAbstractButton::clicked, this, [this]() {
         populateHistoryMenu();
@@ -252,12 +254,20 @@ FilterExpressionEdit::FilterExpressionEdit(QWidget *parent) :
         emit validityChanged(s == FilterEdit::SyntaxState::Valid ||
                              s == FilterEdit::SyntaxState::Deprecated);
     });
+    // updateApplyEnabled() holds the apply action off while a debounced
+    // validation is pending (the state is stale); re-evaluate once it has run.
+    connect(this, &FilterEdit::validated, this, &FilterExpressionEdit::updateApplyEnabled);
     connect(this, &QLineEdit::returnPressed, this, &FilterExpressionEdit::applyExpression);
 
     // Button widths change with zoom; keep the reserved text margins in step so
     // the text/affordance boundary stays correct.
     connect(FontManager::instance(), &FontManager::zoomChanged,
             this, &FilterExpressionEdit::updateInlineMargins);
+
+    // The entries carry explicit point sizes and margins taken when they were
+    // built, so rebuild them once the menu font has been updated for a zoom step.
+    connect(FontManager::instance(), &FontManager::applicationFontChanged,
+            this, &FilterExpressionEdit::rebuildBookmarkEntries);
 
     updateClearVisible();
     updateApplyEnabled();
@@ -398,7 +408,8 @@ void FilterExpressionEdit::rebuildBookmarkEntries()
     QFont header_font = base;
     header_font.setPointSizeF(qMax(1.0, base.pointSizeF() - 1.0));
     header->setFont(header_font);
-    header->setContentsMargins(12, 5, 12, 2);
+    header->setContentsMargins(ZoomScaling::scaledPixels(12), ZoomScaling::scaledPixels(5),
+                               ZoomScaling::scaledPixels(12), ZoomScaling::scaledPixels(2));
 
     QWidgetAction *header_action = new QWidgetAction(this);
     header_action->setDefaultWidget(header);
@@ -450,16 +461,29 @@ void FilterExpressionEdit::updateClearVisible()
 {
     // Reflow only when the clear button's presence actually flips, so typing
     // doesn't re-reserve text margins on every keystroke.
-    const bool show = !text().isEmpty();
+    // Stay visible for an empty field while a filter is still applied, so the
+    // button can clear that filter.
+    const bool show = !text().isEmpty() || !applied_expression_.isEmpty();
     if (show == !clear_button_->isHidden())
         return;
     clear_button_->setVisible(show);
     updateInlineMargins();
 }
 
+void FilterExpressionEdit::setAppliedExpression(const QString &expression)
+{
+    applied_expression_ = expression;
+    updateClearVisible();
+    updateApplyEnabled();
+}
+
 void FilterExpressionEdit::updateApplyEnabled()
 {
-    apply_button_->setEnabled(apply_visible_ && !text().isEmpty() &&
+    // Empty text is a valid thing to apply (it clears the active filter), so it
+    // is only "nothing to do" when no filter is currently applied.
+    apply_button_->setEnabled(apply_visible_ &&
+                              text() != applied_expression_ &&
+                              !isValidationPending() &&
                               state() != FilterEdit::SyntaxState::Invalid);
 }
 

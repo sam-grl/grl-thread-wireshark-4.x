@@ -79,65 +79,41 @@ file(APPEND "${_all_manifest_wix}" "  <!-- Files required for all sections. Gene
 file(APPEND "${_all_manifest_wix}"  "<?include InputPaths.wxi ?>\n")
 file(APPEND "${_all_manifest_wix}" "  <Fragment>\n")
 file(APPEND "${_all_manifest_wix}" "    <DirectoryRef Id=\"INSTALLFOLDER\">\n")
-file(APPEND "${_all_manifest_wix}" "      <?ifdef BUNDLE_DEBUG_DLLS ?>\n")
-foreach(_dll ${GLIB2_DLLS_DEBUG})
-	STRING(REGEX REPLACE "[-|\\.]" "_" _wix_name ${_dll})
-	file(APPEND "${_all_manifest_wix}" "        <Component Id=\"cmp${_wix_name}\" Guid=\"*\">\n")
-	file(APPEND "${_all_manifest_wix}" "          <File Id=\"fil${_wix_name}\" KeyPath=\"yes\" Source=\"$(var.Staging.Dir)\\${_dll}\"/>\n")
-	file(APPEND "${_all_manifest_wix}" "        </Component>\n")
-endforeach()
-file(APPEND "${_all_manifest_wix}" "      <?else?>\n")
-foreach(_dll ${GLIB2_DLLS_RELEASE})
-	STRING(REGEX REPLACE "[-|\\.]" "_" _wix_name ${_dll})
-	file(APPEND "${_all_manifest_wix}" "        <Component Id=\"cmp${_wix_name}\" Guid=\"*\">\n")
-	file(APPEND "${_all_manifest_wix}" "          <File Id=\"fil${_wix_name}\" KeyPath=\"yes\" Source=\"$(var.Staging.Dir)\\${_dll}\"/>\n")
-	file(APPEND "${_all_manifest_wix}" "        </Component>\n")
-endforeach()
-file(APPEND "${_all_manifest_wix}" "      <?endif?>\n")
-SET(unique_component "")
-set (_dll_list ${AMRNB_DLL} ${AMRWB_DLL} ${CARES_DLL} ${PCRE2_RELEASE_DLL} ${GCRYPT_DLLS}
-	${GNUTLS_DLLS} ${KERBEROS_DLLS} ${LIBSSH_DLLS} ${LUA_DLL}
-	${LZ4_DLL} ${MINIZIP_DLL} ${MINIZIPNG_DLLS} ${NGHTTP2_DLL} ${NGHTTP3_DLL} ${SBC_DLL} ${SMI_DLL}
-	${SNAPPY_DLL} ${SPANDSP_DLL} ${BCG729_DLL} ${LIBXML2_DLLS} ${WINSPARKLE_DLL}
-	${XXHASH_DLL} ${ZLIB_DLLS_RELEASE} ${ZLIBNG_DLL} ${BROTLI_DLLS} ${ZSTD_DLL} ${ILBC_DLL} ${OPUS_DLL}
-	${SPEEXDSP_DLL}
-	# Required for mmdbresolve
-	${MAXMINDDB_DLL}
-	)
-foreach(_dll ${_dll_list})
-	#ensure uniqueness of files
-	IF(NOT "${unique_component}" MATCHES "(^|;)${_dll}(;|$)")
-		STRING(REGEX REPLACE "[-|\\.]" "_" _wix_name ${_dll})
-		file(APPEND "${_all_manifest_wix}" "      <Component Id=\"cmp${_wix_name}\" Guid=\"*\">\n")
-		file(APPEND "${_all_manifest_wix}" "        <File Id=\"fil${_wix_name}\" KeyPath=\"yes\" Source=\"$(var.Staging.Dir)\\${_dll}\"/>\n")
-		file(APPEND "${_all_manifest_wix}" "      </Component>\n")
-		SET(unique_component ${unique_component} ${_dll})
-	ENDIF(NOT "${unique_component}" MATCHES "(^|;)${_dll}(;|$)")
-endforeach()
+# Third party DLLs registered with ws_add_runtime_dlls(). DLLs whose names
+# differ between Release and Debug builds go in a BUNDLE_DEBUG_DLLS section.
+ws_get_runtime_dll_names(_common_dlls _release_dlls _debug_dlls FOR wireshark)
+
+# Append a Component, or with REF a ComponentRef, for each DLL.
+function(append_wix_dll_components file indent ref) # ...DLL names
+	foreach(_dll IN LISTS ARGN)
+		string(REGEX REPLACE "[-|\\.]" "_" _wix_name ${_dll})
+		if(ref)
+			file(APPEND "${file}" "${indent}<ComponentRef Id=\"cmp${_wix_name}\" />\n")
+		else()
+			file(APPEND "${file}" "${indent}<Component Id=\"cmp${_wix_name}\" Guid=\"*\">\n")
+			file(APPEND "${file}" "${indent}  <File Id=\"fil${_wix_name}\" KeyPath=\"yes\" Source=\"$(var.Staging.Dir)\\${_dll}\"/>\n")
+			file(APPEND "${file}" "${indent}</Component>\n")
+		endif()
+	endforeach()
+endfunction()
+
+function(append_wix_dlls file ref)
+	if(_release_dlls OR _debug_dlls)
+		file(APPEND "${file}" "      <?ifdef BUNDLE_DEBUG_DLLS ?>\n")
+		append_wix_dll_components("${file}" "        " ${ref} ${_debug_dlls})
+		file(APPEND "${file}" "      <?else?>\n")
+		append_wix_dll_components("${file}" "        " ${ref} ${_release_dlls})
+		file(APPEND "${file}" "      <?endif?>\n")
+	endif()
+	append_wix_dll_components("${file}" "      " ${ref} ${_common_dlls})
+endfunction()
+
+append_wix_dlls("${_all_manifest_wix}" FALSE)
 file(APPEND "${_all_manifest_wix}" "    </DirectoryRef>\n")
 file(APPEND "${_all_manifest_wix}" "  </Fragment>\n")
 file(APPEND "${_all_manifest_wix}" "  <Fragment>\n")
 file(APPEND "${_all_manifest_wix}" "    <ComponentGroup Id=\"CG.RequiredDependencies\">\n")
-file(APPEND "${_all_manifest_wix}" "      <?ifdef BUNDLE_DEBUG_DLLS ?>\n")
-foreach(_dll ${GLIB2_DLLS_DEBUG})
-	STRING(REGEX REPLACE "[-|\\.]" "_" _wix_name ${_dll})
-	file(APPEND "${_all_manifest_wix}" "        <ComponentRef Id=\"cmp${_wix_name}\" />\n")
-endforeach()
-file(APPEND "${_all_manifest_wix}" "      <?else?>\n")
-foreach(_dll ${GLIB2_DLLS_RELEASE})
-	STRING(REGEX REPLACE "[-|\\.]" "_" _wix_name ${_dll})
-	file(APPEND "${_all_manifest_wix}" "        <ComponentRef Id=\"cmp${_wix_name}\" />\n")
-endforeach()
-file(APPEND "${_all_manifest_wix}" "      <?endif?>\n")
-SET(unique_file "")
-foreach(_dll ${_dll_list})
-	#ensure uniqueness of files
-	IF(NOT "${unique_file}" MATCHES "(^|;)${_dll}(;|$)")
-		STRING(REGEX REPLACE "[-|\\.]" "_" _wix_name ${_dll})
-		file(APPEND "${_all_manifest_wix}" "      <ComponentRef Id=\"cmp${_wix_name}\" />\n")
-		SET(unique_file ${unique_file} ${_dll})
-	ENDIF(NOT "${unique_file}" MATCHES "(^|;)${_dll}(;|$)")
-endforeach()
+append_wix_dlls("${_all_manifest_wix}" TRUE)
 file(APPEND "${_all_manifest_wix}" "    </ComponentGroup>\n")
 file(APPEND "${_all_manifest_wix}" "  </Fragment>\n")
 file(APPEND "${_all_manifest_wix}" "\n</Wix>\n")
@@ -169,11 +145,12 @@ set(WIX_CANDLE_DEFINES
 	-dWiresharkMinorVersion=${PROJECT_MINOR_VERSION}
 	-dAssetDir=${CMAKE_SOURCE_DIR}/packaging/wix
 	-dBuildOutputDir=${EXECUTABLE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}
-	-dDiameterDir=${ARCHIVE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/diameter
-	-dQualcommDir=${ARCHIVE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/qualcomm
+	-dStagingDatafileDir=${WIRESHARK_DATAFILE_DIR}
+	-dDiameterDir=${WIRESHARK_DATAFILE_DIR}/diameter
+	-dQualcommDir=${WIRESHARK_DATAFILE_DIR}/qualcomm
 	-dIconDir=${CMAKE_SOURCE_DIR}/resources/icons
 	-dQtTranslationDir=${ARCHIVE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/translations
-	-dRadiusDictDir=${ARCHIVE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/radius
+	-dRadiusDictDir=${WIRESHARK_DATAFILE_DIR}/radius
 	-dSnmpMibDir=${ARCHIVE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/snmp/mibs
 	-dUsersGuideDir=${ARCHIVE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/doc/wsug_html_chunked
 	${d_smi_dir}
@@ -246,7 +223,7 @@ macro( ADD_WIX_PACKAGE_TARGET )
 		# RadiusDict.wxs. Collects all Radius dictionary files in
 		# "output" radius directory. Generated with heat.exe
 		add_custom_command(OUTPUT ${_wix_binary_dir}/RadiusDict.wxs
-			COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/radius
+			COMMAND ${WIX_HEAT_EXECUTABLE} dir ${WIRESHARK_DATAFILE_DIR}/radius
 					${WIX_HEAT_FLAGS} -cg CG.RadiusDict -dr dirRadius -var var.RadiusDictDir
 					-out ${_wix_binary_dir}/RadiusDict.wxs
 		)
@@ -254,7 +231,7 @@ macro( ADD_WIX_PACKAGE_TARGET )
 		# Diameter.wxs. Collects all Diameter XML dictionary files
 		# in "output" diameter directory. Generated with heat.exe
 		add_custom_command(OUTPUT ${_wix_binary_dir}/Diameter.wxs
-			COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/diameter
+			COMMAND ${WIX_HEAT_EXECUTABLE} dir ${WIRESHARK_DATAFILE_DIR}/diameter
 					${WIX_HEAT_FLAGS} -cg CG.Diameter -dr dirDiameter -var var.DiameterDir
 					-out ${_wix_binary_dir}/Diameter.wxs
 		)
@@ -262,7 +239,7 @@ macro( ADD_WIX_PACKAGE_TARGET )
 		# Qualcomm.wxs. Collects all Qualcomm XML dictionary files
 		# in "output" qualcomm directory. Generated with heat.exe
 		add_custom_command(OUTPUT ${_wix_binary_dir}/Qualcomm.wxs
-			COMMAND ${WIX_HEAT_EXECUTABLE} dir ${ARCHIVE_OUTPUT_PATH}/${CMAKE_CFG_INTDIR}/qualcomm
+			COMMAND ${WIX_HEAT_EXECUTABLE} dir ${WIRESHARK_DATAFILE_DIR}/qualcomm
 					${WIX_HEAT_FLAGS} -cg CG.Qualcomm -dr dirQualcomm -var var.QualcommDir
 					-out ${_wix_binary_dir}/Qualcomm.wxs
 		)

@@ -2001,8 +2001,8 @@ dissect_st334_2(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, void *data)
                 } else {
                     service_number = first & 0x3f;
                 }
-                ti = proto_tree_add_uint(service_tree, hf_st334_2_caption_service_number,
-                                         tvb, s_off, 1, service_number);
+                proto_tree_add_uint(service_tree, hf_st334_2_caption_service_number,
+                                    tvb, s_off, 1, service_number);
 
                 /*
                  * SMPTE ST 334-2:2015, Sec. 5.5, Table 6 defines
@@ -2547,8 +2547,7 @@ dissect_st2031(tvbuff_t *tvb, packet_info *pinfo _U_, proto_tree *tree, void *da
     /* SMPTE ST 2031:2015, Sec. 6, Table 2 -- data_identifier,
      * data_unit_id and data_unit_length. */
     proto_tree_add_item(st2031_tree, hf_st2031_data_identifier, tvb, 0, 1, ENC_BIG_ENDIAN);
-    proto_tree_add_item(st2031_tree, hf_st2031_data_unit_id, tvb, 1, 1, ENC_BIG_ENDIAN);
-    unit_id = tvb_get_uint8(tvb, 1);
+    proto_tree_add_item_ret_uint8(st2031_tree, hf_st2031_data_unit_id, tvb, 1, 1, ENC_BIG_ENDIAN, &unit_id);
 
     if ((unit_id == 0x02 || unit_id == 0x03) && tvb_captured_length(tvb) >= 47) {
         proto_tree_add_item(st2031_tree, hf_st2031_data_unit_length, tvb, 2, 1, ENC_BIG_ENDIAN);

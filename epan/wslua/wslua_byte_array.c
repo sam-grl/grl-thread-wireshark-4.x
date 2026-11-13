@@ -24,7 +24,9 @@
 /* WSLUA_CONTINUE_MODULE Tvb */
 
 
-WSLUA_CLASS_DEFINE(ByteArray,FAIL_ON_NULL("ByteArray"));
+/* The contents of a ByteArray are allocated outside of Lua, so report
+ * them to the garbage collector when it is pushed, or when it grows. */
+WSLUA_CLASS_DEFINE_BASE_PUSH(ByteArray,FAIL_ON_NULL("ByteArray"),NULL,wslua_gc_report_external(L,v->len));
 
 WSLUA_CONSTRUCTOR ByteArray_new(lua_State* L) {
     /*
@@ -131,6 +133,7 @@ WSLUA_METHOD ByteArray_prepend(lua_State* L) {
     ByteArray ba2 = checkByteArray(L,WSLUA_ARG_ByteArray_prepend_PREPENDED);
 
     g_byte_array_prepend(ba,ba2->data,ba2->len);
+    wslua_gc_report_external(L,ba2->len);
 
     return 0;
 }
@@ -142,6 +145,7 @@ WSLUA_METHOD ByteArray_append(lua_State* L) {
     ByteArray ba2 = checkByteArray(L,WSLUA_ARG_ByteArray_append_APPENDED);
 
     g_byte_array_append(ba,ba2->data,ba2->len);
+    wslua_gc_report_external(L,ba2->len);
 
     return 0;
 }
@@ -163,6 +167,7 @@ WSLUA_METHOD ByteArray_set_size(lua_State* L) {
         g_byte_array_set_size(ba,siz);
     } else { /* fill */
         padding = (uint8_t *)g_malloc0(sizeof(uint8_t)*(siz - ba->len));
+        wslua_gc_report_external(L,siz - ba->len);
         g_byte_array_append(ba,padding,siz - ba->len);
         g_free(padding);
     }
@@ -678,7 +683,7 @@ WSLUA_METHOD ByteArray_tvb (lua_State *L) {
     ByteArray ba = checkByteArray(L,1);
     const char* name = luaL_optstring(L,WSLUA_ARG_ByteArray_tvb_NAME,"Unnamed") ;
     uint8_t* data;
-    Tvb tvb;
+    tvbuff_t* tvb;
 
     if (!lua_tvb) {
         luaL_error(L,"Tvbs can only be created and used in dissectors");
@@ -687,14 +692,11 @@ WSLUA_METHOD ByteArray_tvb (lua_State *L) {
 
     data = (uint8_t *)g_memdup2(ba->data, ba->len);
 
-    tvb = (Tvb)g_malloc(sizeof(struct _wslua_tvb));
-    tvb->ws_tvb = tvb_new_child_real_data(lua_tvb, data, ba->len,ba->len);
-    tvb->expired = false;
-    tvb->need_free = false;
-    tvb_set_free_cb(tvb->ws_tvb, g_free);
+    tvb = tvb_new_child_real_data(lua_tvb, data, ba->len,ba->len);
+    tvb_set_free_cb(tvb, g_free);
 
-    add_new_data_source(lua_pinfo, tvb->ws_tvb, name);
-    push_wsluaTvb(L,tvb);
+    add_new_data_source(lua_pinfo, tvb, name);
+    push_Tvb(L,tvb);
     WSLUA_RETURN(1); /* The created <<lua_class_Tvb,`Tvb`>>. */
 }
 

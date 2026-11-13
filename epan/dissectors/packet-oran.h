@@ -21,10 +21,13 @@ enum section_c_types {
     SEC_C_SINR_REPORTING = 9,
     SEC_C_RRM_MEAS_REPORTS = 10,
     SEC_C_REQUEST_RRM_MEAS = 11,
+    SEC_C_SRS_DESCRIPTION = 12,
+    SEC_C_RRM_MEAS_REPORTS_NON_TIMING = 13,
+    SEC_C_CO_SCHEDULING_INFO = 14,
     SEC_C_MAX_INDEX				/* used to size array below */
 };
 
-#define HIGHEST_EXTTYPE 32  /* Highest supported exttype */
+#define HIGHEST_EXTTYPE 35  /* Highest supported exttype */
 #define MAX_SECTION_IDs 32  /* i.e. how many may be reported from one frame */
 #define MAX_BEAMS_IN_FRAME 32
 
@@ -39,6 +42,20 @@ enum section_c_types {
 #define BFP_AND_SELECTIVE_RE_WITH_MASKS       7
 #define MOD_COMPR_AND_SELECTIVE_RE_WITH_MASKS 8
 
+
+/* PUBLIC_HEADER: This is used by custom dissectors and should be in the "install" target */
+typedef struct oran_se_info {
+    uint32_t exttype;       /* Section Extension type number */
+    uint32_t extlen;        /* Signalled extension length, in 32-bit words */
+    uint32_t startPrbc;     /* startPrbc from the section header */
+    uint32_t numPrbc;       /* numPrbc from the section header */
+    /* proto_item for the per-extension tree item created by packet-oran.c, so an
+       external dissector can relabel it (e.g. the "(ext-NN: Reserved)" summary text). */
+    void* extension_ti;
+    /* proto_item for the extType field (hf_oran_exttype), so an external dissector can
+       override its "Reserved"/unknown value label. */
+    void* exttype_ti;
+} oran_se_info;
 
 typedef struct oran_tap_info {
     /* Key info */

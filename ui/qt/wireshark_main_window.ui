@@ -292,9 +292,11 @@
     </widget>
     <addaction name="actionHelpContents"/>
     <addaction name="menuHelpManualPages"/>
+    <addaction name="actionHelpPersonalThemesFolder"/>
     <addaction name="separator"/>
     <addaction name="actionHelpWebsite"/>
     <addaction name="actionHelpFAQ"/>
+    <addaction name="actionHelpDiscord"/>
     <addaction name="actionHelpAsk"/>
     <addaction name="actionHelpDownloads"/>
     <addaction name="actionHelpWiki"/>
@@ -409,6 +411,7 @@
      <addaction name="actionViewInternalsSupportedProtocols"/>
      <addaction name="actionViewInternalsKeyboardShortcuts"/>
      <addaction name="actionViewInternalsThemeDebug"/>
+     <addaction name="actionViewInternalsThemeDesigner"/>
     </widget>
     <widget class="QMenu" name="menuAdditionalToolbars">
      <property name="title">
@@ -1046,10 +1049,6 @@
    </property>
   </action>
   <action name="actionHelpWebsite">
-   <property name="icon">
-    <iconset resource="../../resources/stock_icons.qrc">
-     <normaloff>:/menu/help/wsicon16.png</normaloff>:/menu/help/wsicon16.png</iconset>
-   </property>
    <property name="text">
     <string>Website</string>
    </property>
@@ -1065,10 +1064,6 @@
    </property>
   </action>
   <action name="actionHelpWiki">
-   <property name="icon">
-    <iconset resource="../../resources/stock_icons.qrc">
-     <normaloff>:/menu/help/wsicon16.png</normaloff>:/menu/help/wsicon16.png</iconset>
-   </property>
    <property name="text">
     <string>Wiki</string>
    </property>
@@ -1089,16 +1084,14 @@
     <enum>QAction::MenuRole::AboutRole</enum>
    </property>
   </action>
-  <action name="actionHelpAsk">
-   <property name="icon">
-    <iconset resource="../../resources/stock_icons.qrc">
-     <normaloff>:/menu/help/wsicon-ask.png</normaloff>:/menu/help/wsicon-ask.png</iconset>
+  <action name="actionHelpDiscord">
+   <property name="text">
+    <string>Discord</string>
    </property>
+  </action>
+  <action name="actionHelpAsk">
    <property name="text">
     <string>Ask (Q&amp;&amp;A)</string>
-   </property>
-   <property name="iconVisibleInMenu">
-    <bool>true</bool>
    </property>
   </action>
   <action name="actionGoNextPacket">
@@ -2797,6 +2790,14 @@
     <string>Show the active theme, main window geometry, and live widget info</string>
    </property>
   </action>
+  <action name="actionViewInternalsThemeDesigner">
+   <property name="text">
+    <string>Theme D&amp;esigner…</string>
+   </property>
+   <property name="toolTip">
+    <string>Create, copy, edit, import and export personal themes</string>
+   </property>
+  </action>
   <action name="actionTelephonyGsmMapSummary">
    <property name="text">
     <string>MAP Summary</string>
@@ -3269,6 +3270,14 @@
     <string>Release Notes</string>
    </property>
   </action>
+  <action name="actionHelpPersonalThemesFolder">
+   <property name="text">
+    <string>Personal Themes Folder</string>
+   </property>
+   <property name="toolTip">
+    <string>Open the folder that holds your own theme files</string>
+   </property>
+  </action>
   <action name="actionHelpCheckUpdates">
    <property name="enabled">
     <bool>false</bool>
@@ -3333,9 +3342,7 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources>
-  <include location="../../resources/stock_icons.qrc"/>
- </resources>
+ <resources/>
  <connections>
   <connection>
    <sender>actionFileQuit</sender>

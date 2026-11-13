@@ -128,11 +128,12 @@ DIAG_ON(frame-larger-than=)
 #include "resolved_addresses_dialog.h"
 #include "show_packet_bytes_dialog.h"
 #include "stats_tree_dialog.h"
-#include <ui/qt/utils/stock_icon.h>
+#include <ui/qt/utils/themes/themed_shape_icon.h>
 #include <ui/qt/utils/themes/themed_icon.h>
 #include "keyboard_shortcuts_dialog.h"
 #include "supported_protocols_dialog.h"
 #include "theme_debug_dialog.h"
+#include "theme_designer_dialog.h"
 #include "tap_parameter_dialog.h"
 #include "time_shift_dialog.h"
 #include "uat_dialog.h"
@@ -1509,12 +1510,12 @@ void StratosharkMainWindow::initViewColorizeMenu()
         if (colorf) {
             QColor bg = ColorUtils::fromColorT(colorf->bg_color);
             QColor fg = ColorUtils::fromColorT(colorf->fg_color);
-            cc_action->setIcon(StockIcon::colorIcon(bg.rgb(), fg.rgb(), QString::number(color_num)));
+            cc_action->setIcon(ThemedShapeIcon(ThemedShapeIcon::Square, bg, fg, QString::number(color_num)));
         }
         color_num++;
     }
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     // Spotlight uses Cmd+Space
     main_ui_->actionViewColorizeResetColorization->setShortcut(QKeySequence("Meta+Space"));
 #endif
@@ -2136,14 +2137,50 @@ void StratosharkMainWindow::editConfigurationProfiles()
 
 void StratosharkMainWindow::showPreferencesDialog(QString module_name)
 {
-    PreferencesDialog *pref_dialog = new PreferencesDialog(this);
-    connect(pref_dialog, &PreferencesDialog::destroyed, mainApp, &MainApplication::flushAppSignals);
+    // Have a single instance of the dialog at any one time. Every
+    // PreferencesDialog stashes all preferences in the global pref_t
+    // stash and its destructor clears that stash, so a second instance
+    // would wipe the stash of the first one.
+    if (preferences_dialog_ && preferences_dialog_->isVisible()) {
+        if (!module_name.isEmpty()) {
+            preferences_dialog_->setPane(module_name);
+        }
+        if (preferences_dialog_->isMinimized()) {
+            preferences_dialog_->showNormal();
+        }
+        preferences_dialog_->raise();
+        preferences_dialog_->activateWindow();
+        return;
+    }
+
+    // A finished dialog waiting for its deferred delete must clear the
+    // stash now, before the new dialog fills it.
+    delete preferences_dialog_;
+    if (preferences_dialog_) {
+        // A trigger handled while the old dialog was being destroyed
+        // already opened a new one.
+        preferences_dialog_->raise();
+        preferences_dialog_->activateWindow();
+        return;
+    }
+
+    preferences_dialog_ = new PreferencesDialog(this);
+    // QWidget emits destroyed() while QPointer still points at the dialog.
+    // Forget it before flushAppSignals() runs, so code that opens the
+    // Preferences again from there creates a new dialog instead of
+    // deleting the one being destroyed. Connected first, so it runs first.
+    connect(preferences_dialog_, &PreferencesDialog::destroyed, this, [this](QObject *obj) {
+        if (preferences_dialog_.data() == obj) {
+            preferences_dialog_.clear();
+        }
+    });
+    connect(preferences_dialog_, &PreferencesDialog::destroyed, mainApp, &MainApplication::flushAppSignals);
     saveWindowGeometry();  // Save in case the layout panes are rearranged
 
-    pref_dialog->setPane(module_name);
-    pref_dialog->setWindowModality(Qt::ApplicationModal);
-    pref_dialog->setAttribute(Qt::WA_DeleteOnClose);
-    pref_dialog->show();
+    preferences_dialog_->setPane(module_name);
+    preferences_dialog_->setWindowModality(Qt::ApplicationModal);
+    preferences_dialog_->setAttribute(Qt::WA_DeleteOnClose);
+    preferences_dialog_->show();
 }
 
 // View Menu
@@ -2191,6 +2228,15 @@ void StratosharkMainWindow::connectViewMenuActions()
     connect(main_ui_->actionViewNormalSize, &QAction::triggered, this, []() {
         FontManager::instance()->resetZoom();
     });
+
+    // Zoom In and Zoom Out stop at the zoom limits.  Set them now too: the
+    // stored zoom level is applied before the main window exists.
+    auto update_zoom_actions = [this]() {
+        main_ui_->actionViewZoomIn->setEnabled(FontManager::instance()->canZoomIn());
+        main_ui_->actionViewZoomOut->setEnabled(FontManager::instance()->canZoomOut());
+    };
+    update_zoom_actions();
+    connect(FontManager::instance(), &FontManager::zoomChanged, this, update_zoom_actions);
 
     connect(main_ui_->actionViewExpandSubtrees, &QAction::triggered,
             proto_tree_, &ProtoTree::expandSubtrees);
@@ -2275,6 +2321,11 @@ void StratosharkMainWindow::connectViewMenuActions()
     connect(main_ui_->actionViewInternalsThemeDebug, &QAction::triggered, this, [this]() {
         ThemeDebugDialog *theme_debug_dlg = new ThemeDebugDialog(this);
         theme_debug_dlg->show();
+    });
+
+    connect(main_ui_->actionViewInternalsThemeDesigner, &QAction::triggered, this, [this]() {
+        ThemeDesignerDialog *theme_designer_dlg = new ThemeDesignerDialog(this);
+        theme_designer_dlg->show();
     });
 
     connect(main_ui_->actionViewShowPacketInNewWindow, &QAction::triggered, this,
@@ -3042,6 +3093,8 @@ void StratosharkMainWindow::connectStatisticsMenuActions()
 
     connect(main_ui_->actionStatisticsPlot, &QAction::triggered, this, [=]() { showPlotDialog(); });
 
+    connect(main_ui_->actionStatisticsDistribution, &QAction::triggered, this, [this]() { showDistributionDialog(); });
+
     main_ui_->actionStatisticsFlowGraph->setVisible(false); // Hide for now.
     // connect(main_ui_->actionStatisticsFlowGraph, &QAction::triggered, this, [=]() {
     //     QMessageBox::warning(this, "Oops", "SequenceDialog depends on RTPStreamDialog");
@@ -3099,6 +3152,15 @@ void StratosharkMainWindow::showIOGraphDialog(io_graph_item_unit_t value_units, 
         connect(iog_dialog, &StratosharkIOGraphDialog::goToPacket, this, [=](int packet_num) {packet_list_->goToPacket(packet_num);});
         connect(this, &StratosharkMainWindow::reloadFields, iog_dialog, &StratosharkIOGraphDialog::reloadFields);
     }
+    iog_dialog->show();
+}
+
+void StratosharkMainWindow::showIOGraphDialogForFilters(const QString &displayFilter, const QVector<QString> &filters, const QVector<QString> &names)
+{
+    StratosharkIOGraphDialog *iog_dialog = new StratosharkIOGraphDialog(*this, capture_file_);
+    iog_dialog->initialize(*this, displayFilter, IOG_ITEM_UNIT_PACKETS, QString(), true, filters, names);
+    connect(iog_dialog, &StratosharkIOGraphDialog::goToPacket, this, [=](int packet_num) {packet_list_->goToPacket(packet_num);});
+    connect(this, &StratosharkMainWindow::reloadFields, iog_dialog, &StratosharkIOGraphDialog::reloadFields);
     iog_dialog->show();
 }
 
@@ -3179,6 +3241,9 @@ void StratosharkMainWindow::connectHelpMenuActions()
     });
 
     connect(main_ui_->actionHelpContents, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(HELP_CONTENT); });
+    connect(main_ui_->actionHelpPersonalThemesFolder, &QAction::triggered, this, [this]() {
+        desktop_open_folder(WorkspaceState::instance()->personalThemesPath(), this);
+    });
     connect(main_ui_->actionHelpMPStratoshark, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_STRATOSHARK); });
     connect(main_ui_->actionHelpMPWireshark_Filter, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_WIRESHARK_FILTER); });
     connect(main_ui_->actionHelpMPCapinfos, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_CAPINFOS); });
@@ -3191,6 +3256,7 @@ void StratosharkMainWindow::connectHelpMenuActions()
     connect(main_ui_->actionHelpMPTShark, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_TSHARK); });
     connect(main_ui_->actionHelpWebsite, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_STRATOSHARK_HOME); });
     connect(main_ui_->actionHelpFAQ, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_FAQ); });
+    connect(main_ui_->actionHelpDiscord, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_DISCORD); });
     connect(main_ui_->actionHelpAsk, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_ASK); });
     connect(main_ui_->actionHelpDownloads, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_STRATOSHARK_DOWNLOAD); });
     connect(main_ui_->actionHelpWiki, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_STRATOSHARK_WIKI); });

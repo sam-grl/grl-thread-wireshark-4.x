@@ -1605,7 +1605,7 @@ blf_read_ethernetframe(blf_params_t *params, int *err, char **err_info, int64_t 
     tmpbuf[10] = ethheader.src_addr[4];
     tmpbuf[11] = ethheader.src_addr[5];
 
-    if (ethheader.tpid != 0 && ethheader.tci != 0) {
+    if (ethheader.tpid != 0) {  /* A valid VLAN tag can have a TCI of 0. */
         phtonu16(tmpbuf + 12, ethheader.tpid);
         phtonu16(tmpbuf + 14, ethheader.tci);
         phtonu16(tmpbuf + 16, ethheader.ethtype);
@@ -1801,7 +1801,8 @@ blf_read_canmessage(blf_params_t *params, int *err, char **err_info, int64_t blo
     uint32_t canid;
     uint8_t  payload_length;
 
-    if (object_length < (data_start - block_start) + (int) sizeof(canheader)) {
+    /* The canheader is followed by 8 bytes, which need to be present! */
+    if (object_length < (data_start - block_start) + (int) sizeof(canheader) + 8) {
         *err = WTAP_ERR_BAD_FILE;
         *err_info = ws_strdup_printf("blf: %s: not enough bytes for can header in object",
                                     can_message2 ? "CAN_MESSAGE2" : "CAN_MESSAGE");
@@ -1905,9 +1906,9 @@ blf_read_canfdmessage(blf_params_t *params, int *err, char **err_info, int64_t b
 
     payload_length_valid = payload_length;
 
-    if (payload_length_valid > object_length - (data_start - block_start) + sizeof(canheader)) {
+    if (payload_length_valid > object_length - (data_start - block_start) - sizeof(canheader)) {
         ws_debug("shortening can payload because buffer is too short.");
-        payload_length_valid = (uint8_t)(object_length - (data_start - block_start));
+        payload_length_valid = (uint8_t)(object_length - (data_start - block_start) - sizeof(canheader));
     }
 
     if (!blf_can_fill_buf_and_rec(params, err, err_info, canid, payload_length, payload_length_valid, data_start + sizeof(canheader), flags, object_timestamp, canheader.channel, canfd_flags)) {
@@ -1970,9 +1971,9 @@ blf_read_canfdmessage64(blf_params_t *params, int *err, char **err_info, int64_t
 
     payload_length_valid = payload_length;
 
-    if (payload_length_valid > object_length - (data_start - block_start)) {
+    if (payload_length_valid > object_length - (data_start - block_start) - sizeof(canheader)) {
         ws_debug("shortening can payload because buffer is too short.");
-        payload_length_valid = (uint8_t)(object_length - (data_start - block_start));
+        payload_length_valid = (uint8_t)(object_length - (data_start - block_start) - sizeof(canheader));
     }
 
     if (!blf_can_fill_buf_and_rec(params, err, err_info, canid, payload_length, payload_length_valid, data_start + sizeof(canheader), flags, object_timestamp, canheader.channel, canfd_flags)) {
@@ -2263,7 +2264,24 @@ blf_read_canxlchannelframe(blf_params_t *params, int *err, char **err_info, int6
         bool canfd = canxlheader.flags & BLF_CANXLCHANNELFRAME_FLAG_FDF;
         uint8_t canfd_flags = 0;
 
+        if (object_length < (data_start - block_start) + (int)sizeof(canxlheader) + payload_length) {
+            ws_debug("shortening canxl for can/canfd payload because buffer is too short.");
+            object_length = (data_start - block_start) + (int)sizeof(canxlheader) + payload_length;
+        }
+
         if (canfd) {
+            if (payload_length > 64) {
+                ws_debug("CANFD should not have payload_length > 64. Shortening!");
+                payload_length = 64;
+            }
+
+            if (canxlheader.dlc > 0x0f) {
+                ws_debug("CANFD should not have DLC > 0x0f.");
+            } else if (payload_length > canfd_dlc_to_length[canxlheader.dlc]) {
+                ws_debug("CANFD payload_length and DLC not compatible!");
+            }
+
+
             if ((canxlheader.flags & BLF_CANXLCHANNELFRAME_FLAG_BRS) == BLF_CANXLCHANNELFRAME_FLAG_BRS) {
                 canfd_flags |= CANFD_BRS;
             }
@@ -2274,8 +2292,15 @@ blf_read_canxlchannelframe(blf_params_t *params, int *err, char **err_info, int6
                 canfd_flags |= CANFD_FDF;
             }
         } else {
+            if (payload_length > 8) {
+                ws_debug("Regular CAN should not have payload_length > 8. Shortening!");
+                payload_length = 8;
+            }
+
             if (canxlheader.dlc > 8) {
                 ws_debug("Regular CAN should not have DLC > 8.");
+            } else if (payload_length != canxlheader.dlc) {
+                ws_debug("CAN payload_length and DLC not compatible!");
             }
 
             canfd_flags = 0;
@@ -4055,7 +4080,6 @@ typedef struct _blf_writer_data {
     blf_fileheader_t *fileheader;
     uint32_t object_count;
     uint64_t start_time;
-    bool start_time_set;
     uint64_t end_time;
 
     uint64_t logcontainer_start;
@@ -4239,10 +4263,7 @@ blf_finalize_file_header(wtap_dumper *wdh, int *err) {
 
     fileheader->obj_count = writer_data->object_count;
 
-    if (writer_data->start_time_set) {
-        blf_write_date_to_blf_header(fileheader, true, writer_data->start_time);
-    }
-
+    blf_write_date_to_blf_header(fileheader, true, writer_data->start_time);
     blf_write_date_to_blf_header(fileheader, false, writer_data->end_time);
 
     fix_endianness_blf_fileheader(fileheader);
@@ -4438,6 +4459,9 @@ static bool blf_dump_objheader(wtap_dumper *wdh, int *err, uint64_t obj_timestam
     if (!wtap_dump_file_write(wdh, &(logheader), sizeof(blf_logobjectheader_t), err)) {
         return false;
     }
+
+    /* Successful writing done, time to update count */
+    writer_data->object_count += 1;
 
     return true;
 }
@@ -5408,8 +5432,10 @@ static bool blf_dump(wtap_dumper *wdh, const wtap_rec *rec, int *err, char **err
 
     uint64_t obj_timestamp = (rec->ts.secs * 1000 * 1000 * 1000 + rec->ts.nsecs);
 
-    /* Due to all object timestamps being relative the file header start time, we only want to do this once */
-    if (!writer_data->start_time_set) {
+    /* Due to all object timestamps being relative the file header start time, we only want to do this once. */
+    /* Packets can be skipped due to writing of that specfic event type not being supported or just not yet */
+    /* implemented, so use the object_count to know if any events has been output to file yet. */
+    if (writer_data->object_count == 0) {
         /* TODO: refine method. Right now assume no event will ever be more than 1 second prior to first packet time. */
         /* Suggested improvement 1: For 2-pass or preloaded data use the time of the actual first event. */
         /* Suggested improvement 2: For single step conversion, make safety margin configurable. */
@@ -5418,7 +5444,6 @@ static bool blf_dump(wtap_dumper *wdh, const wtap_rec *rec, int *err, char **err
         } else {
             writer_data->start_time = 0;
         }
-        writer_data->start_time_set = true;
     }
 
     if (obj_timestamp < writer_data->start_time) {
@@ -5433,7 +5458,6 @@ static bool blf_dump(wtap_dumper *wdh, const wtap_rec *rec, int *err, char **err
 
     /* reduce by BLF start offset */
     obj_timestamp = obj_timestamp - writer_data->start_time;
-    writer_data->object_count += 1;
 
     switch (rec->rec_header.packet_header.pkt_encap) {
     case WTAP_ENCAP_ETHERNET: /* 1 */
@@ -5464,8 +5488,7 @@ static bool blf_dump(wtap_dumper *wdh, const wtap_rec *rec, int *err, char **err
         break;
 
     default:
-        /* we did not write, so correct count */
-        writer_data->object_count -= 1;
+        break;
     }
 
     return true;
@@ -5553,7 +5576,6 @@ blf_dump_open(wtap_dumper *wdh, int *err, char **err_info) {
     writer_data->fileheader = NULL;
     writer_data->object_count = 0;
     writer_data->start_time = 0;
-    writer_data->start_time_set = false;
     writer_data->end_time = 0;
 
     writer_data->logcontainer_start = LOG_CONTAINER_NONE;

@@ -21,35 +21,46 @@
 *   especially regarding the lengths and the structures.
 *
 *   Documentation:
-*      RTMP protocol description on Wiki of Red5 Open Source Flash Server at
+*      Adobe's RTMP, AMF and FLV specifications are collected by the
+*      Enhanced RTMP project at
 *
-*          http://trac.red5.org/wiki/Codecs/RTMPSpecification
+*          https://veovera.org/docs/legacy/
 *
-*      and the pages to which it links:
+*      The RTMP specification is
 *
-*          http://osflash.org/documentation/rtmp
-*          http://wiki.gnashdev.org/RTMP
-*          http://wiki.gnashdev.org/RTMP_Messages_Decoded
-*          http://www.acmewebworks.com/Downloads/openCS/TheAMF.pdf
-*          https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf
+*          https://veovera.org/docs/legacy/rtmp-v1-0-spec.pdf
 *
-*   It's also available from Adobe at
+*      It was formerly available from Adobe at
 *
-*          https://www.adobe.com/devnet/rtmp.html
+*          https://web.archive.org/web/20210926083727/https://www.adobe.com/devnet/rtmp.html
+*
+*      RTMP protocol description on Wiki of Red5 Open Source Flash Server
+*      (archived) at
+*
+*          https://web.archive.org/web/20120530065236/http://trac.red5.org/wiki/Codecs/RTMPSpecification
+*
+*      and the pages to which it links (archived):
+*
+*          https://web.archive.org/web/20070315085249/http://osflash.org/documentation/rtmp
+*          https://web.archive.org/web/20150905175559/http://wiki.gnashdev.org/RTMP
+*          https://web.archive.org/web/20150907021630/http://wiki.gnashdev.org/RTMP_Messages_Decoded
+*          https://web.archive.org/web/20060613154925/http://www.acmewebworks.com/Downloads/openCS/TheAMF.pdf
 *
 *   For AMF, see:
 *
 *          http://download.macromedia.com/pub/labs/amf/amf0_spec_121207.pdf
 *
+*      (also at https://veovera.org/docs/legacy/amf0-file-format-spec.pdf)
+*
 *   for AMF0 and
 *
-*          http://amf3cplusplus.googlecode.com/svn-history/r4/trunk/doc/amf3_spec_05_05_08.pdf
+*          https://veovera.org/docs/legacy/amf3-file-format-spec.pdf
 *
 *   for AMF3.
 *
 *   For FLV, see:
 *
-*          https://rtmp.veriskope.com/pdf/video_file_format_spec_v10.pdf
+*          https://veovera.org/docs/legacy/video-file-format-v10-1-spec.pdf
 *
 *   For Enhanced RTMP, see:
 *
@@ -163,19 +174,6 @@ static dissector_handle_t rtmpt_http_handle;
 
 static bool rtmpt_desegment = true;
 
-/* Native Bandwidth Detection (using the checkBandwidth(), onBWCheck(),
- * onBWDone() calls) transmits a series of increasing size packets over
- * the course of 2 seconds. On a fast link the largest packet can just
- * exceed 256KB, but setting the limit there can cause massive memory
- * usage, especially with fuzzed packets where the length value is bogus.
- * Limit the initial allocation size and realloc if needed, i.e., in
- * future frames if the bytes are actually there.
- * This initial max allocation size can be reduced further if need be,
- * but keep it at least 18 so that the headers fit without checking,
- * See https://gitlab.com/wireshark/wireshark/-/issues/6898
- */
-#define RTMPT_INIT_ALLOC_SIZE 32768
-
 #define RTMP_PORT                     1935 /* Not IANA registered */
 
 #define RTMPT_MAGIC                   0x03
@@ -283,8 +281,8 @@ static const value_string rtmpt_tag_vals[] = {
         { 0, NULL }
 };
 
-/* [Spec] https://github.com/runner365/read_book/blob/master/rtmp/rtmp_specification_1.0.pdf       */
-/* [DevG] http://help.adobe.com/en_US/flashmediaserver/devguide/index.html "working with Live Video" => Adding metadata to a live stream */
+/* [Spec] https://veovera.org/docs/legacy/rtmp-v1-0-spec.pdf */
+/* [DevG] https://web.archive.org/web/20150226180406/http://help.adobe.com/en_US/flashmediaserver/devguide/index.html "working with Live Video" => Adding metadata to a live stream */
 /* [SWF] https://github.com/blackears/raven/blob/master/proj/SWFParser/doc/swf_file_format_spec_v10.pdf */
 static const value_string rtmpt_audio_codecs[] = {
         {  0,                               "Uncompressed" },             /* [DevG] */
@@ -367,7 +365,7 @@ static const value_string rtmpt_video_codecs[] = {
 };
 
 /*
- * https://raw.githubusercontent.com/veovera/enhanced-rtmp/main/enhanced-rtmp.pdf
+ * https://veovera.org/docs/enhanced/enhanced-rtmp-v2.pdf
  */
 static const value_string rtmpt_video_packet_types[] = {
         { 0,                                "PacketTypeSequenceStart" },
@@ -631,6 +629,40 @@ static int rtmpt_message_header_length(int id)
         case 2: return 3;
         default: return 0;
         }
+}
+
+static uint32_t rtmpt_chunk_stream_id(const uint8_t *basic_header)
+{
+        uint32_t id = basic_header[0] & 0x3f;
+
+        if (id == 0)
+                return basic_header[1] + 64;
+        if (id == 1)
+                return pletohu16(basic_header+1) + 64;
+        return id;
+}
+
+/* A type 3 header that continues a message whose header had an extended
+ * timestamp repeats it (#15718). Returns the length of that timestamp for
+ * the type 3 header starting at seq, so the whole header can be reassembled
+ * when it is split across TCP segments.
+ */
+static int rtmpt_type3_ext_ts_length(rtmpt_conv_t *rconv, int cdir, const uint8_t *basic_header, uint32_t seq)
+{
+        uint32_t        id = rtmpt_chunk_stream_id(basic_header);
+        rtmpt_id_t     *ti;
+        rtmpt_packet_t *tp;
+
+        if (id > RTMPT_ID_MAX)
+                return 0;
+        ti = (rtmpt_id_t *)wmem_tree_lookup32(rconv->ids[cdir], id);
+        if (!ti)
+                return 0;
+        tp = (rtmpt_packet_t *)wmem_tree_lookup32_le(ti->packets, seq-1);
+        if (tp && tp->resident && tp->have < tp->want && tp->chunkhave == tp->chunkwant
+            && tp->have > tp->bhlen + 3 && pntohu24(tp->data.p+tp->bhlen) == 0xffffff)
+                return 4;
+        return 0;
 }
 
 /* Lightweight access to AMF0 blobs - more complete dissection is done
@@ -2228,26 +2260,34 @@ dissect_rtmpt_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rtmpt_
                                 if (tf) {
                                         /* The preceding segment contained an incomplete chunk header */
 
-                                        want = tf->len - tf->have;
-                                        if (remain<want)
-                                                want = remain;
-
-                                        tvb_memcpy(tvb, tf->saved.d+tf->have, offset, want);
-
                                         id = tf->saved.d[0];
                                         header_type = (id>>6) & 3;
                                         basic_hlen = rtmpt_basic_header_length(id);
 
-                                        if ((header_type < 3) && (tf->have < (basic_hlen+3)) && (tf->have+want >= (basic_hlen+3))) {
-                                                if (pntohu24(tf->saved.d+basic_hlen) == 0xffffff) {
-                                                        tf->len += 4;
-                                                }
-                                        }
+                                        /* Whether there is an extended timestamp is
+                                         * known only once enough of the header is here,
+                                         * and then the header wants 4 more bytes.
+                                         */
+                                        while (tf->have < tf->len && remain > 0) {
+                                                want = tf->len - tf->have;
+                                                if (remain<want)
+                                                        want = remain;
 
-                                        tf->have += want;
-                                        tf->lastseq = seq+want-1;
-                                        remain -= want;
-                                        offset += want;
+                                                tvb_memcpy(tvb, tf->saved.d+tf->have, offset, want);
+
+                                                if ((header_type < 3) && (tf->have < (basic_hlen+3)) && (tf->have+want >= (basic_hlen+3))) {
+                                                        if (pntohu24(tf->saved.d+basic_hlen) == 0xffffff) {
+                                                                tf->len += 4;
+                                                        }
+                                                } else if ((header_type == 3) && (tf->have < basic_hlen) && (tf->have+want >= basic_hlen)) {
+                                                        tf->len += rtmpt_type3_ext_ts_length(rconv, cdir, tf->saved.d, tf->seq);
+                                                }
+
+                                                tf->have += want;
+                                                tf->lastseq = seq+offset+want-1;
+                                                remain -= want;
+                                                offset += want;
+                                        }
 
                                         if (tf->have < tf->len) {
                                                 return;
@@ -2279,6 +2319,8 @@ dissect_rtmpt_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rtmpt_
                                         if (tvb_get_ntoh24(tvb, offset+basic_hlen) == 0xffffff) {
                                                 message_hlen += 4;
                                         }
+                                } else if ((header_type == 3) && (remain >= basic_hlen)) {
+                                        message_hlen += rtmpt_type3_ext_ts_length(rconv, cdir, tvb_get_ptr(tvb, offset, basic_hlen), seq+offset);
                                 }
 
                                 if (remain < (basic_hlen+message_hlen)) {
@@ -2308,11 +2350,7 @@ dissect_rtmpt_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rtmpt_
                         basic_hlen = rtmpt_basic_header_length(id);
                         message_hlen = tf->len - basic_hlen;
 
-                        id = id & 0x3f;
-                        if (id == 0)
-                                id = tf->saved.d[1] + 64;
-                        else if (id == 1)
-                                id = pletohu16(tf->saved.d+1) + 64;
+                        id = rtmpt_chunk_stream_id(tf->saved.d);
                 }
 
                 /* Calculate header values, defaulting from previous packets with same id */
@@ -2367,6 +2405,22 @@ dissect_rtmpt_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rtmpt_
                         ws_noisy("New packet cdir=%d seq=%d ti=%p tp=%p header_type=%d header_len=%d id=%d tph=%d tpw=%d len=%d cs=%d",
                                     cdir, seq+offset,
                                     ti, tp, header_type, basic_hlen+message_hlen, id, tp?tp->have:0, tp?tp->want:0, body_len, chunk_size);
+
+                        if (tp && tp->resident && tp->have < tp->want) {
+                                /* The previous message on this chunk stream
+                                 * was never completed, and this header starts
+                                 * a new one. Incomplete messages are not added
+                                 * to rconv->packets, so its data will never be
+                                 * used. Free it, and mark the message complete
+                                 * so that nothing is appended to it later.
+                                 */
+                                wmem_free(wmem_file_scope(), tp->data.p);
+                                tp->data.p    = NULL;
+                                tp->alloc     = 0;
+                                tp->want      = tp->have;
+                                tp->chunkwant = 0;
+                                tp->chunkhave = 0;
+                        }
 
                         if (!ti) {
                                 ti = wmem_new(wmem_file_scope(), rtmpt_id_t);
@@ -2449,14 +2503,17 @@ dissect_rtmpt_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rtmpt_
                         } else {
                                 /* Some more reassembly required */
                                 tp->resident = true;
-                                /* tp->want is how much data we think we want.
-                                 * If it's a really big number, we don't want
-                                 * to allocate it all at once, due to memory
-                                 * exhaustion on fuzzed data (#6898).
-                                 * RTMPT_INIT_ALLOC_SIZE should always be larger
-                                 * than basic_hlen + message_hlen.
+                                /* tp->want is how much data we think we want,
+                                 * up to a 24-bit length from the packet. Don't
+                                 * allocate it all at once, due to memory
+                                 * exhaustion on fuzzed data (#6898). Allocate
+                                 * just the header; the body is added below as
+                                 * the bytes arrive. Even a fixed initial size
+                                 * (it used to be 32 KiB) is a large multiplier,
+                                 * as each message on a chunk stream can declare
+                                 * a large length and send only a byte.
                                  */
-                                tp->alloc = MIN(tp->want, RTMPT_INIT_ALLOC_SIZE);
+                                tp->alloc = basic_hlen + message_hlen;
                                 tp->data.p = (uint8_t *)wmem_alloc(wmem_file_scope(), tp->alloc);
 
                                 if (tf && tf->ishdr) {
@@ -2484,14 +2541,9 @@ dissect_rtmpt_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rtmpt_
                                         tp->chunkwant = tp->want - tp->have;
                         }
                 } else {
-                        if (header_type == 3 && tp->resident && tp->have > tp->bhlen + 3
-                            && pntohu24(tp->data.p+tp->bhlen) == 0xffffff) {
-                                /* Header type 3 resends the extended time stamp if the last message on the chunk
-                                 * stream had an extended timestamp.
-                                 * See: https://gitlab.com/wireshark/wireshark/-/issues/15718
-                                 */
-                                message_hlen += 4;
-                        }
+                        /* message_hlen includes any extended timestamp that
+                         * header type 3 resends; see rtmpt_type3_ext_ts_length().
+                         */
                         ws_noisy("Old packet cdir=%d seq=%d ti=%p tp=%p header_len=%d id=%d tph=%d tpw=%d len=%d cs=%d",
                                  cdir, seq+offset,
                                  ti, tp, basic_hlen+message_hlen, id, tp?tp->have:0, tp?tp->want:0, body_len, chunk_size);
@@ -2500,8 +2552,11 @@ dissect_rtmpt_common(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, rtmpt_
                         if (tp->chunkwant > tp->want-tp->have)
                                 tp->chunkwant = tp->want - tp->have;
 
-                        offset += basic_hlen + message_hlen;
-                        remain -= basic_hlen + message_hlen;
+                        if (!tf) {
+                                /* A reassembled header was already consumed */
+                                offset += basic_hlen + message_hlen;
+                                remain -= basic_hlen + message_hlen;
+                        }
                 }
 
                 tf = NULL;

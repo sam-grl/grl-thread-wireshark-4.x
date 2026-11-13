@@ -235,7 +235,8 @@ double asn1_get_real(const uint8_t *real_ptr, int len, int *err) {
     uint64_t N = 0; /* N (supported max 8 octets/64 bit) */
     int exp = 0;
 
-    uint8_t lenE, lenN;
+    uint8_t lenE;
+    int lenN;
 
     if(octet & 0x40) S = -1; else S = 1;
     switch(octet & 0x30) {
@@ -254,6 +255,10 @@ double asn1_get_real(const uint8_t *real_ptr, int len, int *err) {
 
     /* 8.5.7.4 d) Next octet defines length of exponent */
     if (lenE == 4) {
+      if (len < 1) {
+        *err = EINVAL;
+        return val;
+      }
       lenE = *p;
       p++;
       len--;

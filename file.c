@@ -396,9 +396,6 @@ cf_close(capture_file *cf)
     /* no open_routine type */
     cf->open_type = WTAP_TYPE_AUTO;
 
-    /* Clean up the record information. */
-    wtap_rec_cleanup(&cf->rec);
-
     /* Clear the packet list. */
     packet_list_freeze();
     packet_list_clear();
@@ -415,6 +412,13 @@ cf_close(capture_file *cf)
         cf->provider.frames_modified_blocks = NULL;
     }
     cf_unselect_packet(cf);   /* nothing to select */
+
+    /* Clean up the record information. This must come after freeing the
+     * dissection of the selected packet, which points into the record's
+     * data (e.g., the addresses in its packet_info), as clearing the
+     * packet list above can update the UI from that dissection. */
+    wtap_rec_cleanup(&cf->rec);
+
     cf->first_displayed = 0;
     cf->last_displayed = 0;
 
@@ -4948,9 +4952,8 @@ cf_select_packet(capture_file *cf, frame_data *fdata)
     cf->edt = epan_dissect_new(cf->epan, true, true);
 
     /* Prime for color filter evaluation so dissect_frame stores all matching
-     * filters in proto_data, reflecting current session state (e.g., after
-     * pause/resume of coloring rules which triggers a full redissect that
-     * clears per-frame proto_data). */
+     * rules in proto_data for the current coloring rules; they may have
+     * changed since the frame was last dissected. */
     if (color_filters_used()) {
         color_filters_prime_edt(cf->edt);
         cf->current_frame->need_colorize = 1;

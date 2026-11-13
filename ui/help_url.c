@@ -90,6 +90,9 @@ topic_action_url(topic_action_e action)
     case(ONLINEPAGE_ASK):
         url = g_strdup(WS_Q_AND_A_URL);
         break;
+    case(ONLINEPAGE_DISCORD):
+        url = g_strdup(WS_DISCORD_URL);
+        break;
     case(ONLINEPAGE_SAMPLE_FILES):
         url = g_strdup(WS_WIKI_URL("SampleCaptures"));
         break;
@@ -326,6 +329,12 @@ topic_action_url(topic_action_e action)
         break;
     case(HELP_STATS_PLOT_DIALOG):
         url = user_guide_url("ChStatPlots.html");
+        break;
+    case(HELP_THEME_DESIGNER_DIALOG):
+        url = user_guide_url("ChCustThemesSection.html#ChCustThemeDesigner");
+        break;
+    case(HELP_STATS_DISTRIBUTION_DIALOG):
+        url = user_guide_url("ChStatDistribution.html");
         break;
 
     case(TOPIC_ACTION_NONE):

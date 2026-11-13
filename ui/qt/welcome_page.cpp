@@ -19,6 +19,8 @@
 #include "welcome_page.h"
 #include <ui_welcome_page.h>
 #include <ui/qt/utils/color_utils.h>
+#include <ui/qt/utils/font_manager.h>
+#include <ui/qt/utils/zoom_scaling.h>
 #include <ui/qt/utils/qt_ui_utils.h>
 #include <ui/qt/utils/theme_manager.h>
 #include <ui/qt/models/recentcapturefiles_list_model.h>
@@ -27,6 +29,7 @@
 
 #include "main_application.h"
 
+#include <QBoxLayout>
 #include <QClipboard>
 #include <QDesktopServices>
 #include <QDir>
@@ -43,7 +46,7 @@
 WelcomePage::WelcomePage(QWidget *parent) :
     QFrame(parent),
     welcome_ui_(new Ui::WelcomePage),
-    #ifdef Q_OS_MAC
+    #ifdef Q_OS_MACOS
     show_in_str_(tr("Show in Finder")),
     #else
     show_in_str_(tr("Show in Folder")),
@@ -52,6 +55,7 @@ WelcomePage::WelcomePage(QWidget *parent) :
 
 {
     welcome_ui_->setupUi(this);
+    ZoomScaling::scaleSizeLimits(welcome_ui_->sidebarContainer);
 
     setContentsMargins(0, 0, 0, 0);
     setAccessibleName(tr("Welcome page"));
@@ -62,6 +66,11 @@ WelcomePage::WelcomePage(QWidget *parent) :
     welcome_ui_->sidebarContainer->setVisible(false);
 
     updateStyleSheets();
+    connect(ThemeManager::instance(), &ThemeManager::themeChanged,
+            this, &WelcomePage::updateStyleSheets);
+    // The column breakpoint depends on the zoomed text size.
+    connect(FontManager::instance(), &FontManager::zoomChanged,
+            this, &WelcomePage::updateSidebarLayout);
 
     /* Handle Recent Capture Files List */
     // In welcome_page.cpp or wherever the list is created
@@ -86,15 +95,19 @@ WelcomePage::WelcomePage(QWidget *parent) :
     connect(welcome_ui_->openFileSectionRecentList, &QListView::customContextMenuRequested,
         this, &WelcomePage::showCaptureFilesContextMenu);
 
-    if (WorkspaceState::instance()->recentCaptureFiles().size() > 0) {
-        welcome_ui_->openFileSectionLabel->setVisible(true);
-        welcome_ui_->openFileSectionRecentList->setVisible(true);
-    } else {
-        welcome_ui_->openFileSectionLabel->setVisible(false);
-        welcome_ui_->openFileSectionRecentList->setVisible(false);
-    }
+    // Show the Open section only when there are recent files, and keep it
+    // (and the layout) up to date as files are added or removed.
+    auto updateOpenSection = [this]() {
+        bool has_recent = !WorkspaceState::instance()->recentCaptureFiles().isEmpty();
+        welcome_ui_->openFileSectionLabel->setVisible(has_recent);
+        welcome_ui_->openFileSectionRecentList->setVisible(has_recent);
+        updateSidebarLayout();
+    };
+    updateOpenSection();
+    connect(WorkspaceState::instance(), &WorkspaceState::recentCaptureFilesChanged, this, updateOpenSection);
+    connect(WorkspaceState::instance(), &WorkspaceState::stateLoaded, this, updateOpenSection);
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     welcome_ui_->openFileSectionRecentList->setAttribute(Qt::WA_MacShowFocusRect, false);
 #endif
 
@@ -253,11 +266,11 @@ void WelcomePage::showEvent(QShowEvent *event)
  *                of compact state. This is stable because sizeHint()
  *                reports what the widget *wants*, while compact mode is
  *                enforced via setMaximumHeight().
- *   - learnMax:  LearnCardWidget::maximumHeight()  (from .ui: 240)
+ *   - learnMax:  LearnCardWidget::maximumHeight()  (from .ui: 260)
  *   - learnMin:  LearnCardWidget::minimumHeight()   (from .ui: 110)
  *   - spacing:   sidebarLayout->spacing()            (from .ui: 16)
  *
- * Hysteresis (kHysteresis = 20px):
+ * Hysteresis (20px at zoom 0, scaled with the zoom level):
  *   Without hysteresis, at the exact collapse threshold the layout
  *   oscillates: collapsing a widget frees space, which satisfies the
  *   expand threshold, which expands, which exceeds the threshold again.
@@ -279,12 +292,12 @@ void WelcomePage::showEvent(QShowEvent *event)
  *
  * Decision zones (with current widget sizes):
  *
- *   available >= 636 (linksExpandAt)
+ *   available >= 656 (linksExpandAt)
  *     -> full tips + expanded links
  *
- *   available >= 506 (tipsExpandAt)  and  < 636
+ *   available >= 506 (tipsExpandAt)  and  < 656
  *     -> full tips + collapsed links
- *     (between 616-635: hysteresis zone for links -- keeps current state
+ *     (between 636-655: hysteresis zone for links -- keeps current state
  *      if already expanded, won't re-expand if collapsed)
  *
  *   available >= 486 (tipsCompactAt)  and  < 506
@@ -300,11 +313,29 @@ void WelcomePage::showEvent(QShowEvent *event)
  */
 void WelcomePage::updateSidebarLayout()
 {
+    // Open and Capture go side-by-side if preferred, there are recent files
+    // to list, and each column gets at least min_column_width; otherwise
+    // they are stacked. The container width doesn't depend on the direction,
+    // so this can't oscillate.
+    // Both are zoom level 0 design values, scaled because the columns hold
+    // zoomed text.
+    const int min_column_width = ZoomScaling::scaledPixels(320);
+    QBoxLayout *content = welcome_ui_->mainContentLayout;
+    const int column_spacing = ZoomScaling::scaledPixels(24);
+    bool sideBySide = recent.gui_welcome_page_side_by_side &&
+            !WorkspaceState::instance()->recentCaptureFiles().isEmpty() &&
+            welcome_ui_->mainContentContainer->width() >= 2 * min_column_width + column_spacing;
+    content->setDirection(sideBySide ? QBoxLayout::LeftToRight : QBoxLayout::TopToBottom);
+    content->setSpacing(sideBySide ? column_spacing : -1);
+    content->setStretch(0, sideBySide ? 1 : 0);
+    content->setStretch(1, sideBySide ? 1 : 0);
+
     int available = welcome_ui_->sidebarContainer->height();
     if (available <= 0)
         return;
 
-    static const int kHysteresis = 20;
+    // Compared with zoomed heights, so the band is scaled like them.
+    const int hysteresis = ZoomScaling::scaledPixels(20);
 
     int spacing = welcome_ui_->sidebarLayout->spacing();
     int tipsFull = welcome_ui_->tipsSectionCard->sizeHint().height();
@@ -316,11 +347,11 @@ void WelcomePage::updateSidebarLayout()
 
     // Level 1: links collapse when full tips + expanded learn don't fit.
     int linksCollapseAt = tipsFull + spacing + learnMax;
-    int linksExpandAt = linksCollapseAt + kHysteresis;
+    int linksExpandAt = linksCollapseAt + hysteresis;
 
     // Level 2: tips compact when full tips + collapsed learn don't fit.
     int tipsCompactAt = tipsFull + spacing + learnMin;
-    int tipsExpandAt = tipsCompactAt + kHysteresis;
+    int tipsExpandAt = tipsCompactAt + hysteresis;
 
     bool collapseLinks;
     bool compactTips = welcome_ui_->tipsSectionCard->isCompactMode();
@@ -379,13 +410,8 @@ void WelcomePage::updateStyleSheets()
 {
     QString welcome_ss = ThemeManager::styleSheet(QStringLiteral("welcome-page"));
 #if !defined(Q_OS_WIN)
-    welcome_ss += QStringLiteral(
-                "QAbstractItemView:item:hover {"
-                "  background-color: %1;"
-                "  color: palette(text);"
-                "}"
-                )
-            .arg(ColorUtils::hoverBackground().name(QColor::HexArgb));
+    // Same hover fill as the other item views.
+    welcome_ss += ColorUtils::itemHoverStyleSheet(QStringLiteral("QAbstractItemView"));
 #endif
     setStyleSheet(welcome_ss);
 

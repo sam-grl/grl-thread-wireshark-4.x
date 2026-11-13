@@ -20,8 +20,10 @@
 #include <QMenu>
 #include <QHeaderView>
 #include <QInputDialog>
+#include <QToolButton>
 
-#include <ui/qt/widgets/stock_icon_tool_button.h>
+#include <ui/qt/utils/zoom_scaling.h>
+#include <ui/qt/utils/themes/themed_icon.h>
 #include <ui/qt/utils/theme_manager.h>
 
 #include <extcap.h>
@@ -148,6 +150,7 @@ QWidget * ExtArgMultiSelect::createEditor(QWidget * parent)
 
     /* Shows at minimum 6 entries at most desktops */
     treeView->setMinimumHeight(100);
+    ZoomScaling::scaleSizeLimits(treeView);
     treeView->setHeaderHidden(true);
     treeView->setSelectionMode(QAbstractItemView::ExtendedSelection);
     treeView->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -276,6 +279,7 @@ ExtArgTableAddDialog::ExtArgTableAddDialog(QWidget* parent, QWidget* selector) :
 {
     setWindowTitle("Add element");
     setMinimumWidth(400);
+    ZoomScaling::scaleSizeLimits(this);
 
     QVBoxLayout* layout = new QVBoxLayout(this);
     QPushButton* okButton = new QPushButton("OK", this);
@@ -310,6 +314,7 @@ QWidget* ExtArgTable::createEditor(QWidget* parent)
     // Instantiate empty table
     tableView = new QTableView(pane);
     tableView->setMinimumHeight(200);
+    ZoomScaling::scaleSizeLimits(tableView);
     tableView->setSelectionMode(QAbstractItemView::ExtendedSelection);
     tableView->setEditTriggers(QAbstractItemView::NoEditTriggers);
     tableView->verticalHeader()->hide();
@@ -396,11 +401,13 @@ void ExtArgTable::addChecked(QStringList checked, QStringList options)
             tableViewModel->appendRow({ item, btnItem });
 
             // Add button
-            StockIconToolButton* settingsButton = new StockIconToolButton(tableView, "capture-options");
+            QToolButton* settingsButton = new QToolButton(tableView);
+            settingsButton->setIcon(ThemedIcon("capture-options"));
             settingsButton->setFixedWidth(30);
+            ZoomScaling::scaleSizeLimits(settingsButton);
             tableView->setIndexWidget(tableViewModel->indexFromItem(btnItem), settingsButton);
 
-            connect(settingsButton, &StockIconToolButton::clicked, this, [=]() {
+            connect(settingsButton, &QToolButton::clicked, this, [=]() {
                 QString optionValue = checked[i];
                 this->showExtcapOptionsDialogForOptionValue(item, optionValue);
             });

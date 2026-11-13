@@ -13,6 +13,7 @@
 
 #include <QApplication>
 #include <QColor>
+#include <QHash>
 #include <QPalette>
 
 #include <memory>
@@ -29,6 +30,18 @@ using IconPaletteRef = std::shared_ptr<std::optional<QPalette>>;
 inline IconPaletteRef makeIconPaletteRef()
 {
     return std::make_shared<std::optional<QPalette>>();
+}
+
+/**
+ * @brief Token colour overrides shared between a ContrastAdaptIcon and its
+ *        engine, so that ContrastAdaptIcon::setTokenColors() reaches the engine
+ *        even though QIcon hides it.  Empty means "use the live theme".
+ */
+using IconTokenColorsRef = std::shared_ptr<QHash<ThemeManager::ThemeToken, QColor>>;
+
+inline IconTokenColorsRef makeIconTokenColorsRef()
+{
+    return std::make_shared<QHash<ThemeManager::ThemeToken, QColor>>();
 }
 
 inline const QPalette *iconPalettePtr(const IconPaletteRef &ref)
@@ -57,7 +70,7 @@ inline QColor resolveIconToken(ThemeManager::ThemeToken token, const QPalette *p
         case ThemeManager::PaletteWindowText:      return palette->color(QPalette::WindowText);
         case ThemeManager::PaletteAlternateBase:   return palette->color(QPalette::AlternateBase);
         case ThemeManager::PaletteMid:             return palette->color(QPalette::Mid);
-        case ThemeManager::PaletteMidLight:        return palette->color(QPalette::Midlight);
+        case ThemeManager::PaletteMidlight:        return palette->color(QPalette::Midlight);
         case ThemeManager::PaletteHighlightedText: return palette->color(QPalette::HighlightedText);
         default: break;
         }

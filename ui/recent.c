@@ -89,10 +89,13 @@
 #define RECENT_GUI_TSD_MA_WINDOW_SIZE           "gui.tsd_ma_window_size"
 #define RECENT_GUI_TSD_THROUGHPUT_SHOW          "gui.tsd_throughput_show"
 #define RECENT_GUI_TSD_GOODPUT_SHOW             "gui.tsd_goodput_show"
+#define RECENT_KEY_SIDE_BY_SIDE                 "gui.welcome_page.side_by_side"
 #define RECENT_KEY_SIDEBAR_LEARN_VISIBLE        "gui.welcome_page.sidebar.learn_visible"
 #define RECENT_KEY_SIDEBAR_TIPS_VISIBLE         "gui.welcome_page.sidebar.tips_visible"
 #define RECENT_KEY_THEME_NAME                   "gui.theme_name"
+#define RECENT_KEY_THEME_DESIGNER_PREVIEW       "gui.theme_designer_preview"
 #define RECENT_KEY_COLOR_SCHEME                 "gui.color_scheme"
+#define RECENT_KEY_CONTRAST                     "gui.contrast"
 #define RECENT_KEY_SIDEBAR_TIPS_EVENTS          "gui.welcome_page.sidebar.tips_events"
 #define RECENT_KEY_SIDEBAR_TIPS_SPONSORSHIP     "gui.welcome_page.sidebar.tips_sponsorship"
 #define RECENT_KEY_SIDEBAR_TIPS_TIPS            "gui.welcome_page.sidebar.tips_tips"
@@ -196,6 +199,13 @@ static const value_string gui_color_scheme_values[] = {
     { COLOR_SCHEME_DEFAULT, "system" },
     { COLOR_SCHEME_LIGHT,   "light" },
     { COLOR_SCHEME_DARK,    "dark" },
+    { 0, NULL }
+};
+
+static const value_string gui_contrast_values[] = {
+    { GUI_CONTRAST_SYSTEM,   "system" },
+    { GUI_CONTRAST_STANDARD, "standard" },
+    { GUI_CONTRAST_HIGH,     "high" },
     { 0, NULL }
 };
 
@@ -991,6 +1001,10 @@ write_recent(void)
     write_recent_enum(rf, "Find packet search type", RECENT_GUI_SEARCH_TYPE, search_type_values,
                       recent.gui_search_type);
 
+    write_recent_boolean(rf, "Welcome page prefer Open and Capture side-by-side",
+            RECENT_KEY_SIDE_BY_SIDE,
+            recent.gui_welcome_page_side_by_side);
+
     write_recent_boolean(rf, "Welcome page sidebar Learn section visible",
             RECENT_KEY_SIDEBAR_LEARN_VISIBLE,
             recent.gui_welcome_page_sidebar_learn_visible);
@@ -1024,8 +1038,17 @@ write_recent(void)
             recent.gui_theme_name ? recent.gui_theme_name
                                   : application_flavor_name_lower());
 
+    if (recent.gui_theme_designer_preview && *recent.gui_theme_designer_preview) {
+        fprintf(rf, "\n# Theme Designer preview tab shown last.\n");
+        fprintf(rf, RECENT_KEY_THEME_DESIGNER_PREVIEW ": %s\n",
+                recent.gui_theme_designer_preview);
+    }
+
     write_recent_enum(rf, "Appearance mode", RECENT_KEY_COLOR_SCHEME,
                       gui_color_scheme_values, recent.gui_color_scheme);
+
+    write_recent_enum(rf, "Contrast", RECENT_KEY_CONTRAST,
+                      gui_contrast_values, recent.gui_contrast);
 
     write_recent_boolean(rf, "Welcome page sidebar Tips slides test",
             RECENT_KEY_SIDEBAR_TIPS_SLIDES_TEST,
@@ -1402,6 +1425,8 @@ read_set_recent_common_pair_static(char *key, const char *value,
         recent.gui_search_type = (search_type_type)str_to_val(value, search_type_values, SEARCH_TYPE_DISPLAY_FILTER);
     } else if (strcmp(key, RECENT_GUI_CUSTOM_COLORS) == 0) {
         recent.custom_colors = prefs_get_string_list(value);
+    } else if (strcmp(key, RECENT_KEY_SIDE_BY_SIDE) == 0) {
+        parse_recent_boolean(value, &recent.gui_welcome_page_side_by_side);
     } else if (strcmp(key, RECENT_KEY_SIDEBAR_LEARN_VISIBLE) == 0) {
         parse_recent_boolean(value, &recent.gui_welcome_page_sidebar_learn_visible);
     } else if (strcmp(key, RECENT_KEY_SIDEBAR_TIPS_VISIBLE) == 0) {
@@ -1424,8 +1449,13 @@ read_set_recent_common_pair_static(char *key, const char *value,
     } else if (strcmp(key, RECENT_KEY_THEME_NAME) == 0) {
         g_free(recent.gui_theme_name);
         recent.gui_theme_name = (value && *value) ? g_strdup(value) : NULL;
+    } else if (strcmp(key, RECENT_KEY_THEME_DESIGNER_PREVIEW) == 0) {
+        g_free(recent.gui_theme_designer_preview);
+        recent.gui_theme_designer_preview = (value && *value) ? g_strdup(value) : NULL;
     } else if (strcmp(key, RECENT_KEY_COLOR_SCHEME) == 0) {
         recent.gui_color_scheme = (int)str_to_val(value, gui_color_scheme_values, COLOR_SCHEME_DEFAULT);
+    } else if (strcmp(key, RECENT_KEY_CONTRAST) == 0) {
+        recent.gui_contrast = (int)str_to_val(value, gui_contrast_values, GUI_CONTRAST_SYSTEM);
     } else if (strcmp(key, RECENT_KEY_SIDEBAR_TIPS_SLIDES_TEST) == 0) {
         parse_recent_boolean(value, &recent.gui_welcome_page_sidebar_tips_slides_test);
     }
@@ -1729,6 +1759,7 @@ recent_read_static(char **rf_path_return, int *rf_errno_return)
     recent.gui_fileopen_remembered_dir = NULL;
 
     /* defaults for the welcome page sidebar */
+    recent.gui_welcome_page_side_by_side = false;
     recent.gui_welcome_page_sidebar_learn_visible = true;
     recent.gui_welcome_page_sidebar_tips_visible = true;
     recent.gui_welcome_page_sidebar_tips_events = true;
@@ -1739,6 +1770,7 @@ recent_read_static(char **rf_path_return, int *rf_errno_return)
     recent.gui_welcome_page_sidebar_tips_slides_test = false;
 
     recent.gui_color_scheme = COLOR_SCHEME_DEFAULT;
+    recent.gui_contrast = GUI_CONTRAST_SYSTEM;
 
     /* Construct the pathname of the user's recent common file. */
     rf_path = get_persconffile_path(RECENT_COMMON_FILE_NAME, false, application_configuration_environment_prefix());
@@ -2061,6 +2093,7 @@ recent_cleanup(void)
     g_free(recent.gui_geometry_main_extra_split);
     g_free(recent.gui_fileopen_remembered_dir);
     g_free(recent.gui_theme_name);
+    g_free(recent.gui_theme_designer_preview);
     g_list_free_full(recent.gui_additional_toolbars, g_free);
     g_list_free_full(recent.interface_toolbars, g_free);
     prefs_clear_string_list(recent.conversation_tabs);

@@ -14,6 +14,7 @@
 #include <epan/prefs.h>
 
 #include <ui/qt/main_application.h>
+#include <ui/qt/utils/zoom_scaling.h>
 #include <ui/qt/utils/software_update.h>
 #include <ui/qt/utils/theme_manager.h>
 
@@ -32,13 +33,17 @@ WelcomeHeaderWidget::WelcomeHeaderWidget(QWidget *parent) :
     header_ui_(new Ui::WelcomeHeaderWidget)
 {
     header_ui_->setupUi(this);
+
+    // The size limits come from welcome-header.qss, which scales with the zoom.
+    ZoomScaling::scaleIconSize(header_ui_->updateDismiss);
+
     updateStyleSheet();
 
     // Rebuild the stylesheet whenever the theme (or its light/dark
     // selection) changes.  QEvent::ApplicationPaletteChange alone isn't
     // reliable here — it only fires when the QPalette actually differs,
     // and a light/dark flip on a theme with no palette overrides may not
-    // change any palette roles this widget's gradient depends on.
+    // change any palette roles this widget's colors depend on.
     // Rebuilt on themeChanged, which the ThemeManager also emits on a zoom
     // change — so the header (whose text sizes live in the stylesheet) reloads
     // its zoom-scaled stylesheet automatically, no font handling needed here.

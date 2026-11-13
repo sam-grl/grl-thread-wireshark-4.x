@@ -59,8 +59,10 @@ DIAG_ON(frame-larger-than=)
 #include "epan/epan_dissect.h"
 #include "epan/filter_expressions.h"
 #include "epan/prefs.h"
+#include "epan/print.h"
 #include "epan/uat.h"
 #include "epan/uat-int.h"
+#include "epan/field_urls.h"
 #include "epan/secrets.h"
 #include <wsutil/value_string.h>
 
@@ -109,7 +111,6 @@ DIAG_ON(frame-larger-than=)
 #include <ui/qt/widgets/display_filter_edit.h>
 #include "display_filter_expression_dialog.h"
 #include "dissector_tables_dialog.h"
-#include "distribution_dialog.h"
 #include "endpoint_dialog.h"
 #include "expert_info_dialog.h"
 #include "export_object_action.h"
@@ -164,11 +165,12 @@ DIAG_ON(frame-larger-than=)
 #include "tlskeylog_launcher_dialog.h"
 #include "stats_tree_dialog.h"
 #include "strip_headers_dialog.h"
-#include <ui/qt/utils/stock_icon.h>
+#include <ui/qt/utils/themes/themed_shape_icon.h>
 #include <ui/qt/utils/themes/themed_icon.h>
 #include "keyboard_shortcuts_dialog.h"
 #include "supported_protocols_dialog.h"
 #include "theme_debug_dialog.h"
+#include "theme_designer_dialog.h"
 #include "tap_parameter_dialog.h"
 #include "tcp_dedup_dialog.h"
 #include "tcp_stream_dialog.h"
@@ -787,9 +789,6 @@ void WiresharkMainWindow::captureFileReadStarted(const QString &action) {
     /* Set up main window for a capture file. */
 //    main_set_for_capture_file(true);
 
-    /* Clear session-disabled (paused) color filters for new capture */
-    color_filter_clear_session_disabled();
-
     mainApp->popStatus(WiresharkApplication::FileStatus);
     QString msg = tr("%1: %2").arg(action).arg(capture_file_.fileName());
     QString msgtip = QString();
@@ -1165,8 +1164,9 @@ void WiresharkMainWindow::setMenusForSelectedPacket()
             << main_ui_->actionViewColorizeConversation7 << main_ui_->actionViewColorizeConversation8
             << main_ui_->actionViewColorizeConversation9 << main_ui_->actionViewColorizeConversation10;
 
+    QList<frame_data *> frames;
     if (capture_file_.capFile()) {
-        QList<frame_data *> frames = selectedFrames();
+        frames = selectedFrames();
         frame_data * current_frame = 0;
         if (frames.count() > 0)
             current_frame = frames.at(0);
@@ -1223,15 +1223,19 @@ void WiresharkMainWindow::setMenusForSelectedPacket()
         }
     }
 
-    QList<int> rows = selectedRows(true);
     if (main_ui_->searchFrame) {
+        // Only the frame number of a single selected packet is used.
+        QList<int> rows;
+        if (frames.count() == 1) {
+            rows << frames.at(0)->num;
+        }
         main_ui_->searchFrame->setSelectedFrames(rows, frame_selected);
     }
 
-    main_ui_->actionCopyListAsText->setEnabled(rows.count() > 0);
-    main_ui_->actionCopyListAsCSV->setEnabled(rows.count() > 0);
-    main_ui_->actionCopyListAsYAML->setEnabled(rows.count() > 0);
-    main_ui_->actionCopyListAsHTML->setEnabled(rows.count() > 0);
+    main_ui_->actionCopyListAsText->setEnabled(frames.count() > 0);
+    main_ui_->actionCopyListAsCSV->setEnabled(frames.count() > 0);
+    main_ui_->actionCopyListAsYAML->setEnabled(frames.count() > 0);
+    main_ui_->actionCopyListAsHTML->setEnabled(frames.count() > 0);
 
     main_ui_->actionEditMarkSelected->setEnabled(frame_selected || multi_selection);
     packet_list_->updatePinActions(main_ui_->actionViewPinSelectedRows, main_ui_->actionViewUnpinAllRows);
@@ -1246,7 +1250,7 @@ void WiresharkMainWindow::setMenusForSelectedPacket()
         linkTypes = capture_file_.capFile()->linktypes;
 
     bool enableEditComments = linkTypes && wtap_dump_can_write(capture_file_.capFile()->linktypes, WTAP_COMMENT_PER_PACKET);
-    main_ui_->menuPacketComment->setEnabled(enableEditComments && selectedFrames().count() > 0);
+    main_ui_->menuPacketComment->setEnabled(enableEditComments && frames.count() > 0);
     main_ui_->actionDeleteAllPacketComments->setEnabled(enableEditComments);
 
     main_ui_->actionEditIgnoreSelected->setEnabled(frame_selected || multi_selection);
@@ -1657,12 +1661,12 @@ void WiresharkMainWindow::initViewColorizeMenu()
         if (colorf) {
             QColor bg = ColorUtils::fromColorT(colorf->bg_color);
             QColor fg = ColorUtils::fromColorT(colorf->fg_color);
-            cc_action->setIcon(StockIcon::colorIcon(bg.rgb(), fg.rgb(), QString::number(color_num)));
+            cc_action->setIcon(ThemedShapeIcon(ThemedShapeIcon::Square, bg, fg, QString::number(color_num)));
         }
         color_num++;
     }
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     // Spotlight uses Cmd+Space
     main_ui_->actionViewColorizeResetColorization->setShortcut(QKeySequence("Meta+Space"));
 #endif
@@ -1768,6 +1772,7 @@ void WiresharkMainWindow::openTapParameterDialog(const QString cfg_str, const QS
 
     connect(tp_dialog, &TapParameterDialog::filterAction, this, &WiresharkMainWindow::filterAction);
     connect(tp_dialog, &TapParameterDialog::updateFilter, df_combo_box_, &QLineEdit::setText);
+    connect(tp_dialog, &TapParameterDialog::goToPacket, this, [=](int packet_num) {packet_list_->goToPacket(packet_num);});
     tp_dialog->show();
 }
 
@@ -2483,14 +2488,50 @@ void WiresharkMainWindow::editConfigurationProfiles()
 
 void WiresharkMainWindow::showPreferencesDialog(QString module_name)
 {
-    PreferencesDialog *pref_dialog = new PreferencesDialog(this);
-    connect(pref_dialog, &PreferencesDialog::destroyed, mainApp, &MainApplication::flushAppSignals);
+    // Have a single instance of the dialog at any one time. Every
+    // PreferencesDialog stashes all preferences in the global pref_t
+    // stash and its destructor clears that stash, so a second instance
+    // would wipe the stash of the first one.
+    if (preferences_dialog_ && preferences_dialog_->isVisible()) {
+        if (!module_name.isEmpty()) {
+            preferences_dialog_->setPane(module_name);
+        }
+        if (preferences_dialog_->isMinimized()) {
+            preferences_dialog_->showNormal();
+        }
+        preferences_dialog_->raise();
+        preferences_dialog_->activateWindow();
+        return;
+    }
+
+    // A finished dialog waiting for its deferred delete must clear the
+    // stash now, before the new dialog fills it.
+    delete preferences_dialog_;
+    if (preferences_dialog_) {
+        // A trigger handled while the old dialog was being destroyed
+        // already opened a new one.
+        preferences_dialog_->raise();
+        preferences_dialog_->activateWindow();
+        return;
+    }
+
+    preferences_dialog_ = new PreferencesDialog(this);
+    // QWidget emits destroyed() while QPointer still points at the dialog.
+    // Forget it before flushAppSignals() runs, so code that opens the
+    // Preferences again from there creates a new dialog instead of
+    // deleting the one being destroyed. Connected first, so it runs first.
+    connect(preferences_dialog_, &PreferencesDialog::destroyed, this, [this](QObject *obj) {
+        if (preferences_dialog_.data() == obj) {
+            preferences_dialog_.clear();
+        }
+    });
+    connect(preferences_dialog_, &PreferencesDialog::destroyed, mainApp, &MainApplication::flushAppSignals);
     saveWindowGeometry();  // Save in case the layout panes are rearranged
 
-    pref_dialog->setPane(module_name);
-    pref_dialog->setWindowModality(Qt::ApplicationModal);
-    pref_dialog->setAttribute(Qt::WA_DeleteOnClose);
-    pref_dialog->show();
+    preferences_dialog_->setPane(module_name);
+    preferences_dialog_->setWindowModality(Qt::ApplicationModal);
+    preferences_dialog_->setAttribute(Qt::WA_DeleteOnClose);
+    preferences_dialog_->show();
 }
 
 // View Menu
@@ -2538,6 +2579,15 @@ void WiresharkMainWindow::connectViewMenuActions()
     connect(main_ui_->actionViewNormalSize, &QAction::triggered, this, []() {
         FontManager::instance()->resetZoom();
     });
+
+    // Zoom In and Zoom Out stop at the zoom limits.  Set them now too: the
+    // stored zoom level is applied before the main window exists.
+    auto update_zoom_actions = [this]() {
+        main_ui_->actionViewZoomIn->setEnabled(FontManager::instance()->canZoomIn());
+        main_ui_->actionViewZoomOut->setEnabled(FontManager::instance()->canZoomOut());
+    };
+    update_zoom_actions();
+    connect(FontManager::instance(), &FontManager::zoomChanged, this, update_zoom_actions);
 
     connect(main_ui_->actionViewExpandSubtrees, &QAction::triggered,
             proto_tree_, &ProtoTree::expandSubtrees);
@@ -2622,6 +2672,11 @@ void WiresharkMainWindow::connectViewMenuActions()
     connect(main_ui_->actionViewInternalsThemeDebug, &QAction::triggered, this, [this]() {
         ThemeDebugDialog *theme_debug_dlg = new ThemeDebugDialog(this);
         theme_debug_dlg->show();
+    });
+
+    connect(main_ui_->actionViewInternalsThemeDesigner, &QAction::triggered, this, [this]() {
+        ThemeDesignerDialog *theme_designer_dlg = new ThemeDesignerDialog(this);
+        theme_designer_dlg->show();
     });
 
     connect(main_ui_->actionViewShowPacketInNewWindow, &QAction::triggered, this,
@@ -3719,7 +3774,7 @@ void WiresharkMainWindow::openIOGraph(bool filtered, QVector<uint> typed_conv_id
     QVector<QString> conv_filters;
 
     /* maximum number of graphs to open (too many might break the dialog) */
-    uint max_conv = 10;
+    const uint max_conv = maxIOGraphFilters;
     uint count_conv = 0;
 
     /* the list received should contain at least 2 elements (conv type + conv ids) */
@@ -3765,8 +3820,13 @@ void WiresharkMainWindow::openIOGraph(bool filtered, QVector<uint> typed_conv_id
         }
     }
 
+    showIOGraphDialogForFilters(displayFilter, conv_filters);
+}
+
+void WiresharkMainWindow::showIOGraphDialogForFilters(const QString &displayFilter, const QVector<QString> &filters, const QVector<QString> &names)
+{
     IOGraphDialog *iog_dialog = new IOGraphDialog(*this, capture_file_, "Packets");
-    iog_dialog->initialize(*this, io_graph_packet_fields, displayFilter, IOG_ITEM_UNIT_PACKETS, QString(), true, conv_filters);
+    iog_dialog->initialize(*this, io_graph_packet_fields, displayFilter, IOG_ITEM_UNIT_PACKETS, QString(), true, filters, names);
     connect(this, SIGNAL(reloadFields()), iog_dialog, SLOT(reloadFields()));
     iog_dialog->show();
 }
@@ -4102,6 +4162,9 @@ void WiresharkMainWindow::connectHelpMenuActions()
     });
 
     connect(main_ui_->actionHelpContents, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(HELP_CONTENT); });
+    connect(main_ui_->actionHelpPersonalThemesFolder, &QAction::triggered, this, [this]() {
+        desktop_open_folder(WorkspaceState::instance()->personalThemesPath(), this);
+    });
     connect(main_ui_->actionHelpMPWireshark, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_WIRESHARK); });
     connect(main_ui_->actionHelpMPWireshark_Filter, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_WIRESHARK_FILTER); });
     connect(main_ui_->actionHelpMPWireshark_FilterReference, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_DFILTER_REF); });
@@ -4115,6 +4178,7 @@ void WiresharkMainWindow::connectHelpMenuActions()
     connect(main_ui_->actionHelpMPTShark, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(LOCALPAGE_MAN_TSHARK); });
     connect(main_ui_->actionHelpWebsite, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_WIRESHARK_HOME); });
     connect(main_ui_->actionHelpFAQ, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_FAQ); });
+    connect(main_ui_->actionHelpDiscord, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_DISCORD); });
     connect(main_ui_->actionHelpAsk, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_ASK); });
     connect(main_ui_->actionHelpDownloads, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_WIRESHARK_DOWNLOAD); });
     connect(main_ui_->actionHelpWiki, &QAction::triggered, this, [=]() { mainApp->helpTopicAction(ONLINEPAGE_WIRESHARK_WIKI); });
@@ -4194,18 +4258,6 @@ void WiresharkMainWindow::showEndpointsDialog()
             });
     connect(endp_dialog, &EndpointDialog::openTcpStreamGraph, this, &WiresharkMainWindow::openTcpStreamDialog);
     endp_dialog->show();
-}
-
-void WiresharkMainWindow::showDistributionDialog(const QString &abbreviation)
-{
-    DistributionDialog *dis_dialog = new DistributionDialog(*this, capture_file_, abbreviation);
-    dis_dialog->show();
-    connect(dis_dialog, &DistributionDialog::filterAction, this, &WiresharkMainWindow::filterAction);
-}
-
-void WiresharkMainWindow::showDistributionDialog()
-{
-    showDistributionDialog(QString());
 }
 
 void WiresharkMainWindow::externalMenuItemTriggered()
@@ -4291,6 +4343,26 @@ void WiresharkMainWindow::on_actionContextFilterFieldReference_triggered()
     bool ok = false;
     int field_id = wa->data().toInt(&ok);
     if (!ok) return;
+
+    // A user-defined URL (fieldurls file) for the selected field, or failing that
+    // its protocol, takes precedence over the online field reference. field_id is
+    // the protocol, so the selected field comes from the capture file.
+    capture_file *cf = capture_file_.capFile();
+    if (cf && cf->edt && cf->finfo_selected && cf->finfo_selected->hfinfo) {
+        const char *field_abbrev = cf->finfo_selected->hfinfo->abbrev;
+        const char *proto_abbrev_str = proto_registrar_get_abbrev(field_id);
+        char *field_value = NULL;
+        if (field_url_needs_value(field_abbrev, proto_abbrev_str)) {
+            field_value = get_node_field_value(cf->finfo_selected, cf->edt);
+        }
+        char *custom_url = field_url_for(field_abbrev, proto_abbrev_str, field_value);
+        g_free(field_value);
+        if (custom_url) {
+            QDesktopServices::openUrl(QUrl(QString::fromUtf8(custom_url)));
+            g_free(custom_url);
+            return;
+        }
+    }
 
     const QString proto_abbrev = proto_registrar_get_abbrev(field_id);
 

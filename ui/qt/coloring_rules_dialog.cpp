@@ -24,6 +24,7 @@
 #include "main_application.h"
 
 #include "ui/qt/utils/qt_ui_utils.h"
+#include "ui/qt/utils/themes/themed_icon.h"
 #include "ui/qt/widgets/copy_from_profile_button.h"
 #include "ui/qt/widgets/wireshark_file_dialog.h"
 
@@ -63,12 +64,12 @@ ColoringRulesDialog::ColoringRulesDialog(QWidget *parent, QString add_filter, QS
         ui->coloringRulesTreeView->resizeColumnToContents(i);
     }
 
-    ui->newToolButton->setIconByName("list-add");
-    ui->deleteToolButton->setIconByName("list-remove");
-    ui->copyToolButton->setIconByName("list-copy");
-    ui->clearToolButton->setIconByName("list-clear");
+    ui->newToolButton->setIcon(ThemedIcon("list-add"));
+    ui->deleteToolButton->setIcon(ThemedIcon("list-remove"));
+    ui->copyToolButton->setIcon(ThemedIcon("list-copy"));
+    ui->clearToolButton->setIcon(ThemedIcon("list-clear"));
 
-#ifdef Q_OS_MAC
+#ifdef Q_OS_MACOS
     ui->newToolButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->deleteToolButton->setAttribute(Qt::WA_MacSmallSize, true);
     ui->copyToolButton->setAttribute(Qt::WA_MacSmallSize, true);
@@ -90,15 +91,15 @@ ColoringRulesDialog::ColoringRulesDialog(QWidget *parent, QString add_filter, QS
     export_button_ = ui->buttonBox->addButton(tr("Export…"), QDialogButtonBox::ApplyRole);
     export_button_->setToolTip(tr("Save filters in a file."));
 
-    CopyFromProfileButton * copy_button = new CopyFromProfileButton(this, COLORFILTERS_FILE_NAME, tr("Copy coloring rules from another profile."));
+    CopyFromProfileButton * copy_button = new CopyFromProfileButton(this, COLORING_RULES_FILE_NAME, tr("Copy coloring rules from another profile."));
     ui->buttonBox->addButton(copy_button, QDialogButtonBox::ActionRole);
     connect(copy_button, &CopyFromProfileButton::copyProfile, this, &ColoringRulesDialog::copyFromProfile);
 
-    QString abs_path = gchar_free_to_qstring(get_persconffile_path(COLORFILTERS_FILE_NAME, true, application_configuration_environment_prefix()));
+    QString abs_path = gchar_free_to_qstring(get_persconffile_path(COLORING_RULES_FILE_NAME, true, application_configuration_environment_prefix()));
     if (file_exists(abs_path.toUtf8().constData())) {
         ui->pathLabel->setText(abs_path);
         ui->pathLabel->setUrl(QUrl::fromLocalFile(abs_path).toString());
-        ui->pathLabel->setToolTip(tr("Open ") + COLORFILTERS_FILE_NAME);
+        ui->pathLabel->setToolTip(tr("Open ") + COLORING_RULES_FILE_NAME);
         ui->pathLabel->setEnabled(true);
     }
 
@@ -144,7 +145,7 @@ void ColoringRulesDialog::showEvent(QShowEvent *)
 {
     ui->fGPushButton->setFixedHeight(ui->copyToolButton->geometry().height());
     ui->bGPushButton->setFixedHeight(ui->copyToolButton->geometry().height());
-#ifndef Q_OS_MAC
+#ifndef Q_OS_MACOS
     ui->displayFilterPushButton->setFixedHeight(ui->copyToolButton->geometry().height());
 #endif
 }

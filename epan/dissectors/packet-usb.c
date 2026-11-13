@@ -2553,6 +2553,7 @@ dissect_usb_interface_descriptor(packet_info *pinfo, proto_tree *parent_tree,
 
         /* Register conversation for this interface in case CONTROL messages are sent to it */
         usb_trans_info->interface_info = get_usb_iface_conv_info(pinfo, interface_num);
+        usb_trans_info->interface_info->config_desc_frame_num = pinfo->num;
 
         alternate_setting.altSetting = alt_setting;
         alternate_setting.interfaceClass = tvb_get_uint8(tvb, offset);
@@ -4083,7 +4084,7 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
     uint8_t                  transfer_type;
     bool                     use_setup_tree = false;
 
-    if (!urb) {
+    if (!urb || !urb->conv) {
         /*
          * Not enough information to choose the next protocol.
          * XXX - is there something we can still do here?
@@ -4099,7 +4100,7 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
             (uint32_t)(urb->bus_id<<16 | urb->device_address),
             next_tvb, pinfo, tree, true, urb);
     if (ret)
-        return tvb_captured_length(next_tvb);
+        return ret;
 
     k_frame_number = pinfo->num;
     k_device_address = urb->device_address;
@@ -4124,7 +4125,7 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
                         (uint32_t)device_protocol_data->protocol,
                         next_tvb, pinfo, tree, true, urb);
                 if (ret)
-                    return tvb_captured_length(next_tvb);
+                    return ret;
     }
 
     device_product_data = (device_product_data_t *)wmem_tree_lookup32_array_le(device_to_product_table, key);
@@ -4135,7 +4136,7 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
                         (uint32_t)(device_product_data->vendor<<16 | device_product_data->product),
                         next_tvb, pinfo, tree, true, urb);
                 if (ret)
-                    return tvb_captured_length(next_tvb);
+                    return ret;
     }
 
     transfer_type = urb->transfer_type;
@@ -4240,6 +4241,12 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
             break;
     }
 
+    if (pinfo->fd &&
+        urb->conv->interfaceClass != IF_CLASS_UNKNOWN &&
+        urb->conv->config_desc_frame_num != 0) {
+        mark_frame_as_depended_upon(pinfo->fd, urb->conv->config_desc_frame_num);
+    }
+
     /* try "usb.protocol" on interface level */
     protocol = (urb->conv->interfaceClass & 0xFF) << 16 |
                (urb->conv->interfaceSubclass & 0xFF) << 8 |
@@ -4247,7 +4254,7 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
     ret = dissector_try_uint_with_data(protocol_to_dissector, protocol,
                                  next_tvb, pinfo, tree, true, urb);
     if (ret)
-        return tvb_captured_length(next_tvb);
+        return ret;
 
     if (try_heuristics && heur_subdissector_list) {
         bool dissector_found = dissector_try_heuristic(heur_subdissector_list,
@@ -4270,7 +4277,7 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
         ret = dissector_try_uint_with_data(usb_dissector_table, usb_class,
                 next_tvb, pinfo, use_setup_tree ? setup_tree : tree, true, urb);
         if (ret)
-            return tvb_captured_length(next_tvb);
+            return ret;
 
         /* try protocol specific dissector if there is one */
         usb_class = USB_PROTOCOL_KEY(urb->conv->interfaceClass,
@@ -4279,7 +4286,7 @@ try_dissect_next_protocol(proto_tree *tree, tvbuff_t *next_tvb, packet_info *pin
         ret = dissector_try_uint_with_data(usb_dissector_table, usb_class,
                 next_tvb, pinfo, use_setup_tree ? setup_tree : tree, true, urb);
         if (ret)
-            return tvb_captured_length(next_tvb);
+            return ret;
     }
 
     return 0;
@@ -4380,7 +4387,7 @@ dissect_usb_setup_request(packet_info *pinfo, proto_tree *tree,
 {
     int               setup_offset;
     int               req_type;
-    int               ret;
+    int               ret = 0;
     proto_tree       *parent, *setup_tree;
     usb_trans_info_t *usb_trans_info, trans_info;
     tvbuff_t         *next_tvb, *data_tvb = NULL;
@@ -4468,7 +4475,7 @@ dissect_usb_setup_request(packet_info *pinfo, proto_tree *tree,
     if (is_usb_standard_setup_request(usb_trans_info)) {
         /* there's no point in checking the return value as there's no
            fallback for standard setup requests */
-        dissect_usb_standard_setup_request(pinfo, setup_tree,
+        ret = dissect_usb_standard_setup_request(pinfo, setup_tree,
                 next_tvb, urb, usb_trans_info);
     }
     else {
@@ -4480,14 +4487,18 @@ dissect_usb_setup_request(packet_info *pinfo, proto_tree *tree,
                dissect it as generic setup request */
             proto_tree_add_item(setup_tree, hf_usb_request_unknown_class,
                     next_tvb, 0, 1, ENC_LITTLE_ENDIAN);
-            dissect_usb_setup_generic(pinfo, setup_tree,
+            ret = dissect_usb_setup_generic(pinfo, setup_tree,
                     next_tvb, 1, urb);
         }
         /* at this point, non-standard request has been dissected */
     }
 
-    if (data_tvb)
-        proto_tree_add_item(setup_tree, hf_usb_data_fragment, data_tvb, 0, -1, ENC_NA);
+    if (data_tvb) {
+        int data_tvb_offset = MAX(0, ret - 7);
+        if (tvb_captured_length_remaining(data_tvb, data_tvb_offset) > 0) {
+            proto_tree_add_item(parent, hf_usb_data_fragment, data_tvb, data_tvb_offset, -1, ENC_NA);
+        }
+    }
 
     return offset;
 }
@@ -4819,6 +4830,14 @@ static usb_trans_info_t
 
             ti = proto_tree_add_uint(tree, hf_usb_request_in, tvb, 0, 0, usb_trans_info->request_in);
             proto_item_set_generated(ti);
+
+            if (pinfo->fd) {
+                uint8_t transfer_type = urb->transfer_type;
+                if (transfer_type == URB_UNKNOWN)
+                    transfer_type = urb->conv->descriptor_transfer_type;
+                if (transfer_type == URB_CONTROL)
+                    mark_frame_as_depended_upon(pinfo->fd, usb_trans_info->request_in);
+            }
 
             t = pinfo->abs_ts;
             nstime_delta(&deltat, &t, &usb_trans_info->req_time);

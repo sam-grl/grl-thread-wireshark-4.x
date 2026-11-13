@@ -161,7 +161,7 @@ rlogin_state_machine(rlogin_hash_entry_t *hash_info, tvbuff_t *tvb, packet_info 
 
 		/* Copy string into hash name */
 		/* POSIX-2024 strongly recommends that user names be composed of
-		 * characteers from the portable filename character set and that
+		 * characters from the portable filename character set and that
 		 * the first character cannot be '-'. We could check this with
 		 * module_check_valid_name and add an expert info in the tree,
 		 * since that's exactly what that function tests. (There's also
@@ -285,7 +285,7 @@ static void rlogin_display(rlogin_hash_entry_t *hash_info,
 		offset += str_len;
 
 		/* Terminal type/speed. */
-		if (!tvb_find_uint8_remaining(tvb, offset, '/', &slash_offset))
+		if (tvb_find_uint8_remaining(tvb, offset, '/', &slash_offset))
 		{
 			const char* str = NULL;
 			uint32_t term_len = 0;

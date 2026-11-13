@@ -65,7 +65,8 @@ DisplayFilterEntry::DisplayFilterEntry(QWidget *parent) :
     completionModel()->addSourceModel(completer->fieldsModel());
     completer->setModel(completionModel());
 
-    // Display chrome and mode. Blue bookmark; yellow when the filter is saved.
+    // Display chrome and mode: FilterBookmark, FilterBookmarkMatch when the
+    // filter is saved.
     setBookmarkIcon(ContrastAdaptIcon(QStringLiteral(":/svg_icons/bookmark-display.svg"), QPalette::Base),
                     ContrastAdaptIcon(QStringLiteral(":/svg_icons/bookmark-match.svg"), QPalette::Base));
     setBookmarkMenuLabels(tr("Saved Display Filters"),
@@ -85,6 +86,7 @@ DisplayFilterEntry::DisplayFilterEntry(QWidget *parent) :
     });
     connect(this, &FilterExpressionEdit::cleared, this, [this]() {
         last_applied_.clear();
+        setAppliedExpression(QString());
         emit filterPackets(QString(), true);
     });
     connect(this, &FilterEdit::syntaxStateChanged, this, [this](FilterEdit::SyntaxState s) {
@@ -160,6 +162,7 @@ void DisplayFilterEntry::displayFilterSuccess(bool success)
     // base re-enables the apply action on the next edit or state change.
     if (success)
         last_applied_ = text();
+    setAppliedExpression(success ? text() : QString());
 }
 
 void DisplayFilterEntry::updateStatus(SyntaxState state)

@@ -91,6 +91,7 @@ void proto_register_tns(void);
  * TNS_CCAP_FIELD_VERSION_* name them. The wire shape of several messages
  * depends on the one a connection negotiates. */
 #define TNS_CCAP_FIELD_VERSION  7
+#define TNS_FV_10_2             4   /* older than any python-oracledb names */
 #define TNS_FV_11_2             6
 #define TNS_FV_12_1             7
 #define TNS_FV_12_2             8
@@ -149,11 +150,19 @@ void proto_register_tns(void);
 /* An OCI client's execute preamble: offsets from the TTI_FUN byte, and
  * the 8-byte pointer indicator its fixed slots sit between. */
 #define TNS_OCI_INDICATOR        UINT64_C(0xfeffffffffffffff)
+#define TNS_OCI_ALL8_OPTIONS     3
 #define TNS_OCI_ALL8_CURSOR      7
 #define TNS_OCI_ALL8_IND         11
 #define TNS_OCI_ALL8_SQLLEN3     19
 #define TNS_OCI_ALL8_IND2_NARROW 23
 #define TNS_OCI_ALL8_IND2_WIDE   27
+/* the al8i4 array's length, after the second indicator */
+#define TNS_OCI_ALL8_AL8I4_NARROW 31
+#define TNS_OCI_ALL8_AL8I4_WIDE   35
+
+/* The encoding flag of an OCI client's TTI_DTY, which sends no type
+ * table. */
+#define TNS_DTY_ENCODING_OCI     2
 
 /* An OCI client's object-type describe (TTI_KOD): the opcodes of its
  * request, where the request's name or REF sits from the TTI_FUN byte,
@@ -185,6 +194,7 @@ void proto_register_tns(void);
 #define TTI_SESSION_RELEASE     163
 #define TTI_SESSION_STATE       176
 #define TTI_PIPELINE_BEGIN      199
+#define TTI_ALTER_SESSION       204
 #define TTI_PIPELINE_END        200
 #define TTI_END_USER_SEC_CTX    205
 
@@ -354,6 +364,10 @@ static int hf_tns_data_sns_integrity;
 static int hf_tns_data_setdt_charset_in;
 static int hf_tns_data_setdt_charset_out;
 static int hf_tns_data_setdt_flag;
+static int hf_tns_data_setdt_tz;
+static int hf_tns_data_setdt_tz_offset;
+static int hf_tns_data_setdt_tzfile;
+static int hf_tns_data_setdt_ncharset;
 static int hf_tns_data_setdt_caphdr;
 static int hf_tns_data_setdt_caphdr_version;
 static int hf_tns_data_setdt_caphdr_flags;
@@ -434,6 +448,9 @@ static int hf_tns_data_col_csform;
 static int hf_tns_data_col_max_size;
 static int hf_tns_data_col_max_elements;
 static int hf_tns_data_bind_num_elements;
+static int hf_tns_data_bind_cursor_count;
+static int hf_tns_data_bind_oci_flags;
+static int hf_tns_data_bind_oci_repeat;
 static int hf_tns_data_col_nulls_ok;
 static int hf_tns_data_col_name;
 static int hf_tns_data_col_uds_flags;
@@ -547,6 +564,8 @@ static int hf_tns_data_pgy_app_ctx_op;
 static int hf_tns_data_pgy_app_ctx_namespace;
 static int hf_tns_data_pgy_app_ctx_attr;
 static int hf_tns_data_pgy_app_ctx_value;
+static int hf_tns_data_pgy_alter_param;
+static int hf_tns_data_pgy_alter_value;
 static int hf_tns_data_pgy_session_state;
 static int hf_tns_data_pgy_e2e_flags;
 static int hf_tns_data_pgy_client_id;
@@ -613,6 +632,7 @@ static int ett_tns_bind;
 static int ett_tns_defines;
 static int ett_tns_reexec_options2;
 static int ett_tns_bind_row;
+static int ett_tns_bind_oci_flags;
 static int ett_tns_rxd_row;
 static int ett_tns_value;
 static int ett_tns_irs;
@@ -620,6 +640,7 @@ static int ett_tns_out_binds;
 static int ett_sql;
 static int ett_tns_kod;
 static int ett_tns_app_ctx;
+static int ett_tns_alter_session;
 
 static expert_field ei_tns_connect_data_next_packet;
 static expert_field ei_tns_data_descriptor_size_mismatch;
@@ -660,6 +681,12 @@ static int * const tns_service_options[] = {
 	&hf_tns_sopt_flag_ap,
 	&hf_tns_sopt_flag_ra,
 	&hf_tns_sopt_flag_sa,
+	NULL
+};
+
+/* The flag byte of an OCI client's bind descriptor. */
+static int * const tns_bind_oci_flags[] = {
+	&hf_tns_data_bind_oci_repeat,
 	NULL
 };
 
@@ -969,6 +996,7 @@ static const value_string tns_kv_keywords[] = {
 	{168, "CURRENT_SCHEMA"},
 	{172, "EDITION"},
 	{201, "TRANSACTION_ID"},
+	{204, "TXN_PRIORITY"},
 	{0, NULL}
 };
 
@@ -1134,6 +1162,11 @@ static const value_string tns_csform_vals[] = {
 /* An OAC flag marking a PL/SQL associative-array bind: in the flag byte
  * from 12.2, in the continuation flags before. */
 #define TNS_BIND_ARRAY     0x40
+/* An OCI bind descriptor's flag marking a placeholder whose name came
+ * earlier in the statement: the row carries no value for it. */
+#define TNS_OCI_BIND_REPEAT 0x80
+/* The smallest OCI bind descriptor, a scalar's before 12c. */
+#define TNS_OCI_OAC_MIN_LEN 41
 static const value_string tns_iov_bind_dirs[] = {
 	{16, "OUT"},
 	{32, "IN"},
@@ -1345,6 +1378,7 @@ static const value_string tns_data_oci_subfuncs[] = {
 	{187, "Notify"},
 	{199, "Pipeline begin"},
 	{200, "Pipeline end"},
+	{204, "Alter session"},
 	{205, "End-user security context"},
 	{0, NULL}
 };
@@ -1570,7 +1604,6 @@ static int get_strtype_custom(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tre
 	len = tvb_get_uint8(tvb, offset);
 	if (len == 254) {
 		int actual_len = 0;
-		len = 0;
 		do { // walk over the chunks
 			len = tvb_get_uint8(tvb, offset  + ret);
 			ret++; // 1st byte with the chunk size
@@ -1751,8 +1784,8 @@ static const uint8_t *tns_dalc_bytes(tvbuff_t *tvb, packet_info *pinfo, int offs
  * every field after it, so they have to be spelled out rather than left
  * to the default.
  *
- * The chunk lengths in the 0xFE form are single bytes up to field version
- * 12.1, and variable-length ub4s from 12.2 on.
+ * The chunk lengths in the 0xFE form are plain counts, a single byte (up
+ * to 255) below field version 12.1 and a variable-length ub4 from 12.1 on.
  *
  * Returns the number of bytes consumed from the tvb and, when content
  * is non-empty, a UTF-8 string allocated from pinfo->pool. */
@@ -1950,7 +1983,9 @@ static void tns_civil_from_days(int64_t z, int64_t *y, unsigned *m, unsigned *d)
  * bytes. With the top bit of the first clear they are an offset, hour
  * + 20 and minute + 60, and the value is shown in local time with that
  * offset; with it set they hold a named zone's region id,
- * ((b0 & 0x7f) << 6) + (b1 >> 2), and the value is shown in UTC.
+ * ((b0 & 0x7f) << 6) + (b1 >> 2), and the value is shown in UTC. A
+ * server sends an OCI client the wall clock at the offset instead, and
+ * says so with bit 0x40 of the hour byte.
  * Returns a pinfo->pool string, or NULL. */
 static const char *tns_format_timestamp_tz(packet_info *pinfo, const uint8_t *data, int len)
 {
@@ -1970,11 +2005,14 @@ static const char *tns_format_timestamp_tz(packet_info *pinfo, const uint8_t *da
 		return wmem_strdup_printf(pinfo->pool, "%s UTC (time zone region %u)", utc,
 			((unsigned)(data[11] & 0x7f) << 6) + (data[12] >> 2));
 
-	/* Shift the UTC wall clock by the offset, in whole minutes. */
-	tz_hour = data[11] - 20;
+	/* Shift the UTC wall clock by the offset, in whole minutes, unless
+	 * it is the local one already. */
+	tz_hour = (data[11] & 0x3f) - 20;
 	tz_min = data[12] - 60;
 	days = tns_days_from_civil((data[0] - 100) * 100 + (data[1] - 100), data[2], data[3]);
-	minutes = days * 1440 + (data[4] - 1) * 60 + (data[5] - 1) + tz_hour * 60 + tz_min;
+	minutes = days * 1440 + (data[4] - 1) * 60 + (data[5] - 1);
+	if ( !(data[11] & 0x40) )
+		minutes += tz_hour * 60 + tz_min;
 	days = minutes >= 0 ? minutes / 1440 : -((-minutes + 1439) / 1440);
 	minute_of_day = (int)(minutes - days * 1440);
 	tns_civil_from_days(days, &year, &month, &day);
@@ -2579,7 +2617,20 @@ static void vsnum_to_vstext_basecustom(char *result, uint32_t vsnum)
 	/*
 	 * Translate hex value to human readable version value, described at
 	 * http://docs.oracle.com/cd/B28359_01/server.111/b28310/dba004.htm
+	 * From 18c the word holds a release update's fields instead: major,
+	 * update, revision, increment and extension, as python-oracledb
+	 * reads them.
 	 */
+	if ( (vsnum >> 24) >= 18 )
+	{
+		snprintf(result, ITEM_LABEL_LENGTH, "%u.%u.%u.%u.%u",
+			 vsnum >> 24,
+			(vsnum >> 16) & 0xff,
+			(vsnum >> 12) & 0xf,
+			(vsnum >>  4) & 0xff,
+			 vsnum & 0xf);
+		return;
+	}
 	snprintf(result, ITEM_LABEL_LENGTH, "%d.%d.%d.%d.%d",
 		 vsnum >> 24,
 		(vsnum >> 20) & 0xf,
@@ -2933,6 +2984,39 @@ static int dissect_tns_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 			int end, cursor = 0, start;
 			const tns_call_t *call = tns_answered_call(pinfo);
 
+			if ( kind == TNS_VALUE_BIND )
+			{
+				/* A client's REF CURSOR bind carries no DALC but a ub4
+				 * count, then that many ub4 cursor ids: none for an
+				 * OUT bind, which asks the server to open one, and the
+				 * id of the cursor an IN bind passes. */
+				wmem_strbuf_t *ids = wmem_strbuf_new(pinfo->pool, "");
+				int count = 0;
+
+				end = offset + get_sb4_custom(tvb, offset, &count);
+				for ( int i = 0; i < count; i++ )
+				{
+					end += get_sb4_custom(tvb, end, &cursor);
+					wmem_strbuf_append_printf(ids, "%s%d", i ? ", " : "", cursor);
+				}
+				ci = proto_tree_add_bytes_format(tree, hf, tvb, offset, end - offset, NULL,
+					"%s %d (%s): %s%s", prefix, idx,
+					val_to_str_const(dtype, tns_data_types, "unknown"),
+					count == 0 ? "a new cursor" : count == 1 ? "cursor " : "cursors ",
+					wmem_strbuf_get_str(ids));
+				ct = proto_item_add_subtree(ci, ett_tns_value);
+				start = offset;
+				offset += get_sb4_custom(tvb, offset, &count);
+				proto_tree_add_uint(ct, hf_tns_data_bind_cursor_count, tvb, start, offset - start, count);
+				for ( int i = 0; i < count; i++ )
+				{
+					start = offset;
+					offset += get_sb4_custom(tvb, offset, &cursor);
+					proto_tree_add_uint(ct, hf_tns_cursor, tvb, start, offset - start, cursor);
+				}
+				return offset;
+			}
+
 			/* Rows a TTI_FETCH returns carry a cursor cut short before
 			 * 23ai: the length byte and the id, with no describe. An
 			 * execute's reply, and a fetch-only execute's, carry it
@@ -3211,6 +3295,21 @@ static int dissect_tns_value(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree
 							tvb, disp_start, vlen,
 							csform == TNS_CSFORM_NCHAR ? ENC_UTF_16|ENC_BIG_ENDIAN : ENC_UTF_8|ENC_NA);
 				}
+				else if ( first == 254 && (frame == TNS_DATATYPE_VARCHAR || dtype == TNS_DATATYPE_STRING
+					|| dtype == TNS_DATATYPE_CHAR) )
+				{
+					/* Chunked character data: the chunks joined. A chunk
+					 * can end inside a UTF-16 character. */
+					int clen;
+					const uint8_t *cb = tns_dalc_bytes(tvb, pinfo, v_start, &clen);
+					if ( cb && clen > 0 )
+					{
+						tvbuff_t *ctvb = tvb_new_real_data(cb, clen, clen);
+						rendered = (const char *)tvb_get_string_enc(pinfo->pool, ctvb, 0, clen,
+							csform == TNS_CSFORM_NCHAR ? ENC_UTF_16|ENC_BIG_ENDIAN : ENC_UTF_8|ENC_NA);
+						tvb_free(ctvb);
+					}
+				}
 			}
 			break;
 	}
@@ -3464,6 +3563,134 @@ static int dissect_tns_bind_rows(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 			}
 		proto_item_set_len(row_item, offset - r_start);
 	}
+	return offset;
+}
+
+/* Whether an OCI client sends a bind's value behind the others in the
+ * value row: a char or RAW bind whose buffer is wider than 4000 bytes, as
+ * a thin client sends a LONG-class one. */
+static bool tns_oci_bind_rides_last(const tns_column_t *col)
+{
+	return (col->type == TNS_DATATYPE_VARCHAR || col->type == TNS_DATATYPE_CHAR
+		|| col->type == TNS_DATATYPE_RAW) && col->data_len > 4000;
+}
+
+/* Whether an OCI client sends a bind's value as the value decoder reads
+ * it. A LOB's, an object's and a REF CURSOR's come in forms of their
+ * own. */
+static bool tns_oci_bind_is_plain(uint8_t type)
+{
+	switch ( type )
+	{
+		case TNS_DATATYPE_VARCHAR:
+		case TNS_DATATYPE_NUMBER:
+		case TNS_DATATYPE_DATE:
+		case TNS_DATATYPE_RAW:
+		case TNS_DATATYPE_CHAR:
+		case TNS_DATATYPE_BINARY_FLOAT:
+		case TNS_DATATYPE_BINARY_DOUBLE:
+		case TNS_DATATYPE_TIMESTAMP:
+		case TNS_DATATYPE_TIMESTAMP_TZ:
+			return true;
+		default:
+			return false;
+	}
+}
+
+/* Decode an OCI client's bind descriptor: the thin OAC's fields at fixed
+ * width, little-endian, with OCI's own parts - a lead byte (01 for a
+ * scalar, 00 for an object), from 12c four zero bytes before the
+ * continuation flags and four before the charset, and for a scalar six
+ * zero bytes after the version, one after the form and a ub4 column id
+ * after the max characters. A scalar's descriptor is 41 bytes before 12c
+ * and 49 from it. The lengths are the client's buffer: three bytes a
+ * character for the database charset, two for NCHAR. *repeat is set when
+ * the flags mark a name that occurs again. Returns the new offset. */
+static int dissect_tns_oci_oac(tvbuff_t *tvb, proto_tree *tree, int offset, bool band_12c, tns_column_t *col, bool *repeat)
+{
+	uint32_t v;
+	bool plain;
+
+	/* lead byte */
+	offset += 1;
+	col->type = tvb_get_uint8(tvb, offset);
+	plain = col->type != TNS_DATATYPE_ADT;
+	proto_tree_add_item(tree, hf_tns_data_col_type, tvb, offset, 1, ENC_NA);
+	offset += 1;
+	*repeat = (tvb_get_uint8(tvb, offset) & TNS_OCI_BIND_REPEAT) != 0;
+	proto_tree_add_bitmask(tree, tvb, offset, hf_tns_data_bind_oci_flags,
+		ett_tns_bind_oci_flags, tns_bind_oci_flags, ENC_NA);
+	offset += 1;
+	proto_tree_add_item(tree, hf_tns_data_col_precision, tvb, offset, 1, ENC_NA);
+	offset += 1;
+	proto_tree_add_int(tree, hf_tns_data_col_scale, tvb, offset, 1, (int8_t)tvb_get_uint8(tvb, offset));
+	offset += 1;
+	proto_tree_add_item_ret_uint(tree, hf_tns_data_col_max_length, tvb, offset, 4, ENC_LITTLE_ENDIAN, &col->data_len);
+	offset += 4;
+	v = tvb_get_letohl(tvb, offset);
+	if ( v > 0 )
+		proto_tree_add_uint(tree, hf_tns_data_col_max_elements, tvb, offset, 4, v);
+	offset += 4;
+	if ( band_12c )
+		offset += 4;
+	/* continuation flags */
+	offset += 4;
+	/* the type OID: a ub4 length, then, when not empty, a ub1 length
+	 * and the id */
+	v = tvb_get_letohl(tvb, offset);
+	offset += 4;
+	if ( v > 0 )
+		offset += 1 + tvb_get_uint8(tvb, offset);
+	/* version */
+	offset += 2;
+	if ( plain )
+		offset += 6;
+	if ( band_12c )
+		offset += 4;
+	proto_tree_add_item(tree, hf_tns_data_col_charset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+	offset += 2;
+	col->csform = tvb_get_uint8(tvb, offset);
+	proto_tree_add_item(tree, hf_tns_data_col_csform, tvb, offset, 1, ENC_NA);
+	offset += 1;
+	if ( plain )
+		offset += 1;
+	/* max characters */
+	proto_tree_add_item(tree, hf_tns_data_col_max_size, tvb, offset, 4, ENC_LITTLE_ENDIAN);
+	offset += 4;
+	/* column id */
+	if ( plain )
+		offset += 4;
+	return offset;
+}
+
+/* Decode the TTI_RXD value row of an OCI client's execute. The values
+ * ride in descriptor order, except that a repeated name sends none and a
+ * wide char or RAW bind rides last. A chunked value's chunk lengths are
+ * one byte to a server before 12.1; past that their width follows a
+ * capability, not the field version, so the row stops being read there.
+ * Returns the new offset. */
+static int dissect_tns_oci_bind_row(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset,
+		const tns_column_t *cols, const bool *repeat, uint32_t count)
+{
+	proto_tree *row_tree;
+	proto_item *row_item;
+	int r_start = offset;
+	bool stop = false;
+
+	offset += 1; /* TTI_RXD token */
+	row_tree = proto_tree_add_subtree(tree, tvb, r_start, -1, ett_tns_bind_row, &row_item, "Row 1");
+	for ( int pass = 0; pass < 2 && !stop; pass++ )
+		for ( uint32_t i = 0; i < count && !stop; i++ )
+		{
+			if ( repeat[i] || tns_oci_bind_rides_last(&cols[i]) != (pass == 1) )
+				continue;
+			if ( tvb_reported_length_remaining(tvb, offset) <= 0
+				|| (tvb_get_uint8(tvb, offset) == 0xfe && tns_field_version(pinfo) >= TNS_FV_12_1) )
+				stop = true;
+			else
+				offset = dissect_tns_bind_value(tvb, pinfo, row_tree, offset, &cols[i], i + 1, false);
+		}
+	proto_item_set_len(row_item, offset - r_start);
 	return offset;
 }
 
@@ -4168,6 +4395,44 @@ static int dissect_tns_piggyback_body(tvbuff_t *tvb, packet_info *pinfo, proto_t
 			break;
 		}
 
+		case TTI_ALTER_SESSION:
+		{
+			/* Change session parameters, as ALTER SESSION would, without
+			 * a round trip of its own - a 23ai client sets its
+			 * transaction priority (TXN_PRIORITY) this way: a ub4 of
+			 * flags, a pointer and the ub4 number of parameters, then
+			 * each parameter and its value in the bytes_with_length form
+			 * and a ub4 flag, 1 when the value is empty to restore the
+			 * database default. */
+			int num = 0;
+
+			offset += get_sb4_custom(tvb, offset, &v);     /* flags */
+			offset += 1;                                   /* pointer */
+			offset += get_sb4_custom(tvb, offset, &num);
+			for ( int i = 0; i < num && tvb_reported_length_remaining(tvb, offset) > 0; i++ )
+			{
+				proto_tree *par_tree;
+				proto_item *par_item;
+				const char *param = NULL, *value = NULL;
+				int par_start = offset;
+
+				par_tree = proto_tree_add_subtree(tree, tvb, offset, -1, ett_tns_alter_session, &par_item, "Session Parameter");
+				start = offset;
+				offset += get_field_with_length(tvb, pinfo, offset, &param);
+				if ( param )
+					proto_tree_add_string(par_tree, hf_tns_data_pgy_alter_param, tvb, start, offset - start, param);
+				start = offset;
+				offset += get_field_with_length(tvb, pinfo, offset, &value);
+				proto_tree_add_string(par_tree, hf_tns_data_pgy_alter_value, tvb, start, offset - start, value ? value : "");
+				offset += get_sb4_custom(tvb, offset, &v);
+				proto_item_append_text(par_item, ": %s = %s", param ? param : "", value ? value : "(default)");
+				proto_item_set_len(par_item, offset - par_start);
+				if ( param )
+					col_append_fstr(pinfo->cinfo, COL_INFO, " [%s=%s]", param, value ? value : "default");
+			}
+			break;
+		}
+
 		case TTI_SESSION_STATE:
 			start = offset;
 			offset += get_ub8_custom(tvb, offset, &u);
@@ -4629,6 +4894,25 @@ static int dissect_tns_kod_image(tvbuff_t *tvb, packet_info *pinfo, proto_tree *
 	return offset;
 }
 
+/* The 11-byte time zone block of an OCI client's data-type round, in the
+ * request and the reply alike: the hours, minutes and seconds of the
+ * offset from UTC at bytes 4 to 6, each biased by 60. Returns the offset
+ * past it. */
+static int dissect_tns_dty_tz(tvbuff_t *tvb, packet_info *pinfo, proto_tree *tree, int offset)
+{
+	int h, m, sec;
+	bool negative;
+
+	proto_tree_add_item(tree, hf_tns_data_setdt_tz, tvb, offset, 11, ENC_NA);
+	h = tvb_get_uint8(tvb, offset + 4) - 60;
+	m = tvb_get_uint8(tvb, offset + 5) - 60;
+	sec = tvb_get_uint8(tvb, offset + 6) - 60;
+	negative = h < 0 || m < 0 || sec < 0;
+	proto_item_set_generated(proto_tree_add_string(tree, hf_tns_data_setdt_tz_offset, tvb, offset + 4, 3,
+		wmem_strdup_printf(pinfo->pool, "%c%02d:%02d:%02d", negative ? '-' : '+', abs(h), abs(m), abs(sec))));
+	return offset + 11;
+}
+
 /* Read the error text after an OCI status block: a length byte for up to
  * 252 bytes, else 0xFE and chunks until a zero length. The chunk lengths
  * are single bytes from an 11g server and ub4 LE from an 18c one, and
@@ -4679,6 +4963,20 @@ static int dissect_tns_oci_message(tvbuff_t *tvb, int offset, packet_info *pinfo
 {
 	switch ( data_func_id )
 	{
+		case SQLNET_SET_DATATYPES:
+			/* The answer to an OCI client's data-type round: the
+			 * database's time zone block and, when the client sent one,
+			 * the timezone file version as a ub4 BE. */
+			if ( !tvb_bytes_exist(tvb, offset, 11) )
+				return offset;
+			offset = dissect_tns_dty_tz(tvb, pinfo, data_tree, offset);
+			if ( tvb_bytes_exist(tvb, offset, 4) )
+			{
+				proto_tree_add_item(data_tree, hf_tns_data_setdt_tzfile, tvb, offset, 4, ENC_BIG_ENDIAN);
+				offset += 4;
+			}
+			return offset;
+
 		case SQLNET_INVOKE_USER_CB:
 		{
 			/* A message of a TTI_KOD reply: a by-name reply's header,
@@ -4770,6 +5068,18 @@ static int dissect_tns_oci_message(tvbuff_t *tvb, int offset, packet_info *pinfo
 			proto_tree_add_item(oer_tree, hf_tns_data_oci_oer_command, tvb, base + 22, 1, ENC_NA);
 			if ( !full )
 				return base + 24;
+			/* The warning flags of the thin error block, at 27 where a
+			 * DML's status has the rowid of the row it touched instead:
+			 * the DML command types are INSERT, UPDATE, DELETE and
+			 * UPSERT. */
+			switch ( tvb_get_uint8(tvb, base + 22) )
+			{
+				case 2: case 6: case 7: case 189:
+					break;
+				default:
+					tns_add_warn_flags(tvb, pinfo, oer_tree, base + 27);
+					break;
+			}
 			/* the sequence number of the call this answers - the client's
 			 * own, not the counter at offset 5 */
 			proto_tree_add_item(oer_tree, hf_tns_data_oci_oer_call_seq, tvb, base + 49, 2, ENC_LITTLE_ENDIAN);
@@ -4957,6 +5267,7 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 			 * is shown whole. */
 			proto_tree *caphdr_tree, *ov_tree;
 			proto_item *caphdr_item, *ov_item;
+			uint32_t dty_flag;
 			uint8_t caps_len;
 
 			if ( !is_request )
@@ -4993,7 +5304,7 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 			offset += 2;
 			proto_tree_add_item(data_tree, hf_tns_data_setdt_charset_out, tvb, offset, 2, ENC_LITTLE_ENDIAN);
 			offset += 2;
-			proto_tree_add_item(data_tree, hf_tns_data_setdt_flag, tvb, offset, 1, ENC_BIG_ENDIAN);
+			proto_tree_add_item_ret_uint(data_tree, hf_tns_data_setdt_flag, tvb, offset, 1, ENC_BIG_ENDIAN, &dty_flag);
 			offset += 1;
 
 			caps_len = tvb_get_uint8(tvb, offset);
@@ -5022,6 +5333,28 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 			caps_len = tvb_get_uint8(tvb, offset);
 			proto_tree_add_item(data_tree, hf_tns_data_setdt_tblhdr, tvb, offset, 1 + caps_len, ENC_NA);
 			offset += 1 + caps_len;
+
+			if ( dty_flag == TNS_DTY_ENCODING_OCI )
+			{
+				/* An OCI client - sqlplus, thick python-oracledb - sends
+				 * no type table: the server keeps its own representations,
+				 * the fixed-width integers of the OCI dialect, which this
+				 * flag is the first sign of. In the table's place come the
+				 * session's time zone block, from 11.2 on a ub4 BE
+				 * timezone file version, and the national charset as a
+				 * little-endian ub2. */
+				if ( !PINFO_FD_VISITED(pinfo) )
+					tns_get_conv_info(pinfo)->oci_dialect = true;
+				offset = dissect_tns_dty_tz(tvb, pinfo, data_tree, offset);
+				if ( tvb_reported_length_remaining(tvb, offset) >= 6 )
+				{
+					proto_tree_add_item(data_tree, hf_tns_data_setdt_tzfile, tvb, offset, 4, ENC_BIG_ENDIAN);
+					offset += 4;
+				}
+				proto_tree_add_item(data_tree, hf_tns_data_setdt_ncharset, tvb, offset, 2, ENC_LITTLE_ENDIAN);
+				offset += 2;
+				break;
+			}
 
 			ov_item = proto_tree_add_item(data_tree, hf_tns_data_setdt_overrides, tvb, offset, -1, ENC_NA);
 			ov_tree = proto_item_add_subtree(ov_item, ett_tns_setdt_overrides);
@@ -5150,14 +5483,23 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 			}
 			/* error position (skipped) */
 			offset += get_sb4_custom(tvb, offset, &v);
-			/* 6 single-byte fields: sql_type, fatal, flags,
-			 * user_cursor_opts, upi_param, warn_flags. Five are
+			/* 6 fields: sql_type, fatal, flags, user_cursor_opts,
+			 * upi_param, warn_flags. All are single bytes except flags
+			 * below 12.1, a variable-length ub2: 00 when zero, but two
+			 * bytes once a warning (an aggregate that skipped NULLs)
+			 * sets it. With no field version known, a byte that cannot
+			 * be a ub2's width is the single-byte form. Five are
 			 * diagnostic; the last is not. Its bit 0x20 says the
 			 * statement created a PL/SQL object that compiled with
 			 * errors - the call succeeded, the error code is 0 and the
 			 * reply is otherwise indistinguishable from a clean one, so
 			 * this bit is the only sign the object is invalid. */
-			offset += 5;
+			offset += 2;
+			if ( tns_field_version(pinfo) < TNS_FV_12_1 && tvb_get_uint8(tvb, offset) <= 2 )
+				offset += get_sb4_custom(tvb, offset, &v);
+			else
+				offset += 1;
+			offset += 2;
 			tns_add_warn_flags(tvb, pinfo, oer_tree, offset);
 			offset += 1;
 			/* The rowid of the last row the statement touched: ub4
@@ -5934,22 +6276,36 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 			{
 				/* An object-type describe, sent only by an OCI client: a
 				 * ub4 LE opcode and a frame of zeros, then by name a ub4
-				 * 2, the schema's length, a ub4 0, the name buffer's
-				 * length (three times the name's characters) and the
-				 * name behind a length byte; by REF the REF of the type
-				 * wanted. The bytes after them are not understood. */
+				 * 2, the schema's buffer length (three times its
+				 * characters, 0 for none) and, when there is one, the
+				 * schema behind a length byte, a ub4 0, the name's buffer
+				 * length and the name behind a length byte; by REF the
+				 * REF of the type wanted. The bytes after them are not
+				 * understood. */
 				uint32_t opcode;
 				int o = fun_start + TNS_KOD_FRAME, sys_type;
 
 				if ( !PINFO_FD_VISITED(pinfo) )
 					tns_get_conv_info(pinfo)->oci_dialect = true;
 				proto_tree_add_item_ret_uint(data_tree, hf_tns_data_kod_opcode, tvb, fun_start + 3, 4, ENC_LITTLE_ENDIAN, &opcode);
-				if ( opcode == TNS_KOD_BY_NAME && tvb_bytes_exist(tvb, o, 17) && tvb_get_letohl(tvb, o + 4) == 0 )
+				if ( opcode == TNS_KOD_BY_NAME && tvb_bytes_exist(tvb, o, 8) )
 				{
-					const char *name;
-					uint8_t len = tvb_get_uint8(tvb, o + 16);
-					proto_tree_add_item_ret_string(data_tree, hf_tns_data_kod_name, tvb, o + 17, len, ENC_UTF_8, pinfo->pool, (const uint8_t **)&name);
-					col_append_fstr(pinfo->cinfo, COL_INFO, " [%s]", name);
+					const char *schema = NULL, *name;
+					int p = o + 8;
+					uint8_t len;
+
+					if ( tvb_get_letohl(tvb, o + 4) != 0 )
+					{
+						len = tvb_get_uint8(tvb, p);
+						proto_tree_add_item_ret_string(data_tree, hf_tns_data_kod_schema, tvb, p + 1, len, ENC_UTF_8, pinfo->pool, (const uint8_t **)&schema);
+						p += 1 + len;
+					}
+					len = tvb_get_uint8(tvb, p + 8);
+					proto_tree_add_item_ret_string(data_tree, hf_tns_data_kod_name, tvb, p + 9, len, ENC_UTF_8, pinfo->pool, (const uint8_t **)&name);
+					if ( schema )
+						col_append_fstr(pinfo->cinfo, COL_INFO, " [%s.%s]", schema, name);
+					else
+						col_append_fstr(pinfo->cinfo, COL_INFO, " [%s]", name);
 				}
 				else if ( opcode == TNS_KOD_BY_REF )
 					dissect_tns_kod_ref(tvb, data_tree, o, hf_tns_data_kod_oid, &sys_type);
@@ -6010,6 +6366,31 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 				offset = dissect_tns_aq_call(tvb, pinfo, data_tree, offset, oci_id);
 			else if ( oci_id == TTI_TPC_TXN_SWITCH || oci_id == TTI_TPC_TXN_CHANGE_STATE )
 				offset = dissect_tns_tpc_call(tvb, pinfo, data_tree, offset, oci_id);
+			else if ( oci_id == TTI_REEXECUTE && tns_is_oci(pinfo) && tvb_bytes_exist(tvb, fun_start + 3, 8) )
+			{
+				/* An OCI client's re-execute, as sqlplus runs a block
+				 * again for each SERVEROUTPUT batch after the first: the
+				 * cursor id and the execution count as fixed-width
+				 * little-endian ub4s, eight zero bytes, then a TTI_RXD
+				 * row of the values of the binds that send one. */
+				proto_tree_add_item(data_tree, hf_tns_cursor, tvb, fun_start + 3, 4, ENC_LITTLE_ENDIAN);
+				proto_tree_add_item(data_tree, hf_tns_data_reexec_iterations, tvb, fun_start + 7, 4, ENC_LITTLE_ENDIAN);
+				offset = fun_start + 11;
+			}
+			else if ( oci_id == TTI_ALL8 && tns_is_oci(pinfo) && tvb_bytes_exist(tvb, fun_start + TNS_OCI_ALL8_IND, 8)
+				&& tvb_get_ntoh64(tvb, fun_start + TNS_OCI_ALL8_IND) == 0 )
+			{
+				/* An OCI client's execute of an open cursor by its id,
+				 * as sqlplus prints a REF CURSOR variable: no SQL, so no
+				 * pointer where the first indicator goes. The options and
+				 * the cursor id sit where every other OCI execute has
+				 * them. */
+				proto_tree_add_string(data_tree, hf_tns_data_all8_oci_preamble, tvb, fun_start, 0, "OCI, by cursor id");
+				proto_tree_add_bitmask(data_tree, tvb, fun_start + TNS_OCI_ALL8_OPTIONS, hf_tns_data_all8_options,
+					ett_tns_all8_options, tns_all8_options, ENC_LITTLE_ENDIAN);
+				proto_tree_add_item(data_tree, hf_tns_cursor, tvb, fun_start + TNS_OCI_ALL8_CURSOR, 4, ENC_LITTLE_ENDIAN);
+				offset = fun_start + TNS_OCI_ALL8_IND;
+			}
 			else if ( oci_id == TTI_REEXECUTE || oci_id == TTI_REEXECUTE_AND_FETCH )
 			{
 				/* Re-execute of a cursor whose statement already ran and
@@ -6062,8 +6443,9 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 					call->bind_rec = binds;
 				}
 			}
-			else if ( oci_id == TTI_ALL8 && tvb_bytes_exist(tvb, fun_start + TNS_OCI_ALL8_IND, 8)
-				&& tvb_get_ntoh64(tvb, fun_start + TNS_OCI_ALL8_IND) == TNS_OCI_INDICATOR )
+			else if ( oci_id == TTI_ALL8 && ((tvb_bytes_exist(tvb, fun_start + TNS_OCI_ALL8_IND, 8)
+				&& tvb_get_ntoh64(tvb, fun_start + TNS_OCI_ALL8_IND) == TNS_OCI_INDICATOR)
+				|| (tns_is_oci(pinfo) && tns_field_version(pinfo) == TNS_FV_10_2)) )
 			{
 				/* An OCI client's execute (sqlplus and other thick
 				 * clients): a fixed preamble of 8-byte pointer indicators
@@ -6073,17 +6455,30 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 				 * slots are 8 bytes wide or 4, fixed for a connection;
 				 * the second indicator tells which - it sits at 27 in the
 				 * wide form and 23 in the narrow one, and the two cannot
-				 * both hold. The cursor id and SQL length precede every
-				 * slot and do not move; the bind count and the SQL do.
+				 * both hold. The options, cursor id and SQL length
+				 * precede every slot and do not move; the bind count and
+				 * the SQL do. The options are the thin client's bits,
+				 * little-endian: SET AUTOCOMMIT ON sets the commit bit on
+				 * each statement rather than sending a commit of its own.
 				 * A session at the 12c band inserts 64 zero bytes ahead
 				 * of a narrow preamble's SQL, which moves from 176 to
 				 * 240; the byte before the SQL is its length, never
-				 * zero, so which one holds shows. */
+				 * zero, so which one holds shows.
+				 *
+				 * sqlplus 10.2 sends a third form: narrow, but with the
+				 * SQL at 148. Its pointer fields hold real addresses, not
+				 * the indicator, so only the session's field version
+				 * tells this form apart. */
 				int base = fun_start, bind_count_off, sql_off;
 				uint32_t cursor, sql_len_decl, bind_count;
-				bool wide, band_12c = false;
+				bool wide, band_12c = false, form_10_2 = false, sql_read = false;
 
-				if ( tvb_bytes_exist(tvb, base + TNS_OCI_ALL8_IND2_WIDE, 8)
+				if ( tns_is_oci(pinfo) && tns_field_version(pinfo) == TNS_FV_10_2 )
+				{
+					wide = false;
+					form_10_2 = true;
+				}
+				else if ( tvb_bytes_exist(tvb, base + TNS_OCI_ALL8_IND2_WIDE, 8)
 					&& tvb_get_ntoh64(tvb, base + TNS_OCI_ALL8_IND2_WIDE) == TNS_OCI_INDICATOR )
 					wide = true;
 				else if ( tvb_bytes_exist(tvb, base + TNS_OCI_ALL8_IND2_NARROW, 8)
@@ -6098,8 +6493,8 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 				/* the SQL length, as the client's character set has it */
 				sql_len_decl = tvb_get_letohl(tvb, base + TNS_OCI_ALL8_SQLLEN3);
 				bind_count_off = base + (wide ? 83 : 71);
-				sql_off = base + (wide ? 196 : 176);
-				if ( !wide && sql_len_decl > 0 && tvb_bytes_exist(tvb, base + 239, 1)
+				sql_off = base + (form_10_2 ? 148 : wide ? 196 : 176);
+				if ( !wide && !form_10_2 && sql_len_decl > 0 && tvb_bytes_exist(tvb, base + 239, 1)
 					&& tvb_get_uint8(tvb, base + 175) == 0 )
 				{
 					uint8_t prefix = tvb_get_uint8(tvb, base + 239);
@@ -6113,7 +6508,9 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 				}
 				proto_tree_add_string(data_tree, hf_tns_data_all8_oci_preamble, tvb, base, 0,
 					wide ? "OCI, wide (8-byte slots)" : band_12c ? "OCI, narrow (4-byte slots), 12c band"
-					: "OCI, narrow (4-byte slots)");
+					: form_10_2 ? "OCI, narrow (4-byte slots), 10.2" : "OCI, narrow (4-byte slots)");
+				proto_tree_add_bitmask(data_tree, tvb, base + TNS_OCI_ALL8_OPTIONS, hf_tns_data_all8_options,
+					ett_tns_all8_options, tns_all8_options, ENC_LITTLE_ENDIAN);
 				proto_tree_add_uint(data_tree, hf_tns_cursor, tvb, base + TNS_OCI_ALL8_CURSOR, 4, cursor);
 				bind_count = tvb_get_letohl(tvb, bind_count_off);
 				proto_tree_add_uint(data_tree, hf_tns_data_all8_bind_count, tvb, bind_count_off, 4, bind_count);
@@ -6133,7 +6530,42 @@ static int dissect_tns_message(tvbuff_t *tvb, int offset, packet_info *pinfo, pr
 							proto_tree_add_string(data_tree, hf_tns_data_all8_sql, tvb, start, offset - start, sql);
 							col_append_fstr(pinfo->cinfo, COL_INFO, " [%s]", sql);
 						}
+						sql_read = true;
 					}
+				}
+				/* Behind the SQL: the al8i4 array of ub4s, one descriptor
+				 * per bind, then the TTI_RXD row of values. */
+				uint32_t al8i4_len = tvb_get_letohl(tvb, base + (wide ? TNS_OCI_ALL8_AL8I4_WIDE : TNS_OCI_ALL8_AL8I4_NARROW));
+				int remaining = tvb_reported_length_remaining(tvb, offset);
+				if ( sql_read && bind_count > 0 && remaining > 0 && al8i4_len <= (uint32_t)remaining / 4
+					&& bind_count <= (uint32_t)(remaining - 4 * al8i4_len) / TNS_OCI_OAC_MIN_LEN )
+				{
+					proto_tree *binds_tree, *bind_tree;
+					proto_item *binds_item, *bind_item;
+					int binds_start = offset;
+					bool desc_12c = band_12c || tns_field_version(pinfo) >= TNS_FV_12_1 || tns_is_oci_12c(pinfo);
+					bool plain = true;
+					tns_column_t *bcols = wmem_alloc0_array(pinfo->pool, tns_column_t, bind_count);
+					bool *repeat = wmem_alloc0_array(pinfo->pool, bool, bind_count);
+
+					offset += 4 * al8i4_len;
+					binds_tree = proto_tree_add_subtree(data_tree, tvb, binds_start, -1,
+						ett_tns_binds, &binds_item, "Binds");
+					for ( uint32_t i = 0; i < bind_count; i++ )
+					{
+						int b_start = offset;
+						bind_tree = proto_tree_add_subtree_format(binds_tree, tvb, offset, -1,
+							ett_tns_bind, &bind_item, "Bind %u: %s", i + 1,
+							val_to_str_const(tvb_get_uint8(tvb, offset + 1), tns_data_types, "unknown"));
+						offset = dissect_tns_oci_oac(tvb, bind_tree, offset, desc_12c, &bcols[i], &repeat[i]);
+						proto_item_set_len(bind_item, offset - b_start);
+						if ( !repeat[i] && !tns_oci_bind_is_plain(bcols[i].type) )
+							plain = false;
+					}
+					if ( plain && tvb_reported_length_remaining(tvb, offset) > 0
+						&& tvb_get_uint8(tvb, offset) == SQLNET_ROW_TRANSF_DATA )
+						offset = dissect_tns_oci_bind_row(tvb, pinfo, binds_tree, offset, bcols, repeat, bind_count);
+					proto_item_set_len(binds_item, offset - binds_start);
 				}
 			}
 			else if ( oci_id == TTI_ALL8 )
@@ -8000,6 +8432,18 @@ void proto_register_tns(void)
 		{ &hf_tns_data_setdt_charset_out, {
 			"Charset Out", "tns.data_setdt.charset_out", FT_UINT16, BASE_DEC,
 			VALS(tns_charsets), 0x0, "NLS_NCHAR charset id", HFILL }},
+		{ &hf_tns_data_setdt_tz, {
+			"Time Zone Block", "tns.data_setdt.tz", FT_BYTES, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }},
+		{ &hf_tns_data_setdt_tz_offset, {
+			"Time Zone Offset", "tns.data_setdt.tz_offset", FT_STRING, BASE_NONE,
+			NULL, 0x0, "The offset from UTC the time zone block carries", HFILL }},
+		{ &hf_tns_data_setdt_tzfile, {
+			"Timezone File Version", "tns.data_setdt.tzfile_version", FT_UINT32, BASE_DEC,
+			NULL, 0x0, NULL, HFILL }},
+		{ &hf_tns_data_setdt_ncharset, {
+			"National Charset", "tns.data_setdt.ncharset", FT_UINT16, BASE_DEC,
+			VALS(tns_charsets), 0x0, NULL, HFILL }},
 		{ &hf_tns_data_setdt_flag, {
 			"Flag", "tns.data_setdt.flag", FT_UINT8, BASE_HEX,
 			NULL, 0x0, NULL, HFILL }},
@@ -8266,6 +8710,15 @@ void proto_register_tns(void)
 		{ &hf_tns_data_bind_num_elements, {
 			"Array Elements", "tns.data_bind.num_elements", FT_UINT32, BASE_DEC,
 			NULL, 0x0, NULL, HFILL }},
+		{ &hf_tns_data_bind_cursor_count, {
+			"Cursor Count", "tns.data_bind.cursor_count", FT_UINT32, BASE_DEC,
+			NULL, 0x0, "The cursor ids a REF CURSOR bind passes; none asks for a new cursor", HFILL }},
+		{ &hf_tns_data_bind_oci_flags, {
+			"Flags", "tns.data_bind.oci_flags", FT_UINT8, BASE_HEX,
+			NULL, 0x0, NULL, HFILL }},
+		{ &hf_tns_data_bind_oci_repeat, {
+			"Repeated name", "tns.data_bind.oci_flags.repeat", FT_BOOLEAN, 8,
+			NULL, TNS_OCI_BIND_REPEAT, "The name occurs earlier in the statement; the row carries no value for it", HFILL }},
 		{ &hf_tns_data_col_max_size, {
 			"Max Size", "tns.data_col.max_size", FT_UINT32, BASE_DEC,
 			NULL, 0x0, NULL, HFILL }},
@@ -8484,6 +8937,12 @@ void proto_register_tns(void)
 		{ &hf_tns_data_pgy_app_ctx_value, {
 			"Value", "tns.data_piggyback.app_context_value", FT_STRING, BASE_NONE,
 			NULL, 0x0, NULL, HFILL }},
+		{ &hf_tns_data_pgy_alter_param, {
+			"Session Parameter", "tns.data_piggyback.alter_session_param", FT_STRING, BASE_NONE,
+			NULL, 0x0, NULL, HFILL }},
+		{ &hf_tns_data_pgy_alter_value, {
+			"Value", "tns.data_piggyback.alter_session_value", FT_STRING, BASE_NONE,
+			NULL, 0x0, "Empty to restore the database default", HFILL }},
 		{ &hf_tns_data_pgy_session_state, {
 			"Session State", "tns.data_piggyback.session_state", FT_UINT64, BASE_HEX,
 			NULL, 0x0, "Request boundary: the client begins or ends a request", HFILL }},
@@ -8707,6 +9166,7 @@ void proto_register_tns(void)
 		&ett_tns_oer,
 		&ett_tns_kod,
 		&ett_tns_app_ctx,
+		&ett_tns_alter_session,
 		&ett_tns_call_status,
 		&ett_tns_warn_flags,
 		&ett_tns_auth_mode,
@@ -8726,6 +9186,7 @@ void proto_register_tns(void)
 		&ett_tns_defines,
 		&ett_tns_reexec_options2,
 		&ett_tns_bind_row,
+		&ett_tns_bind_oci_flags,
 		&ett_tns_rxd_row,
 		&ett_tns_value,
 		&ett_tns_irs,

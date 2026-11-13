@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <time.h>
 #include "peak-trc.h"
+#include <wsutil/strtoi.h>
 #include "socketcan.h"
 
 #define PEAK_TRC_MAX_LINE_SIZE 4096 // J1939 logs could contain long lines
@@ -239,7 +240,13 @@ peak_trc_parse(wtap* wth, peak_trc_state_t* state, int64_t* offset, int* err, ch
 
         if (g_str_has_prefix(line_buffer, ";$FILEVERSION="))
         {
-            if (sscanf(line_buffer, ";$FILEVERSION=%d.%d\r\n", &major, &minor) != 2)
+            /* Parse ";$FILEVERSION=major.minor" */
+            const char *p = line_buffer + strlen(";$FILEVERSION=");
+            const char *end;
+            if (!ws_strtoi(p, &end, &major) || *end != '.')
+                return WTAP_OPEN_NOT_MINE;
+            p = end + 1;
+            if (!ws_strtoi(p, NULL, &minor))
                 return WTAP_OPEN_NOT_MINE;
         }
         else if (g_str_has_prefix(line_buffer, ";$STARTTIME="))
@@ -262,9 +269,15 @@ peak_trc_parse(wtap* wth, peak_trc_state_t* state, int64_t* offset, int* err, ch
             double days_since_epoch = g_strtod(parts[1], NULL);
             days_since_epoch -= 25569.0;
             time_t ts = 0;
-            struct tm* t = gmtime(&ts);
-            t->tm_sec += (int)(days_since_epoch * 24 * 3600);
-            state->trace_start = mktime(t);
+            struct tm* start_tm = gmtime(&ts);
+            if (start_tm == NULL) // Extremely unlikely
+            {
+                *err_info = ws_strdup("peak_trc: unable to convert start time");
+                g_strfreev(parts);
+                return WTAP_OPEN_ERROR;
+            }
+            start_tm->tm_sec += (int)(days_since_epoch * 24 * 3600);
+            state->trace_start = mktime(start_tm);
             state->trace_start_nsec = 0;
 
             found_timestamp = true;
@@ -328,10 +341,22 @@ peak_trc_parse(wtap* wth, peak_trc_state_t* state, int64_t* offset, int* err, ch
                 if (!found_timestamp)
                 {
                     int day, month, year, hour, minute, second, millisecond;
-                    if (sscanf(keyword, "Start time: %d.%d.%d %d:%d:%d.%d", &month, &day, &year, &hour, &minute, &second, &millisecond) != 7)
+                    /* Parse "Start time: month.day.year hour:minute:second.millisecond" */
                     {
-                        *err_info = ws_strdup("peak_trc: unable to parse start time");
-                        return WTAP_OPEN_ERROR;
+                        const char *p = keyword + strlen("Start time: ");
+                        const char *end;
+                        bool ok = ws_strtoi(p, &end, &month)  && *end == '.' &&
+                                  ws_strtoi(end+1, &end, &day)  && *end == '.' &&
+                                  ws_strtoi(end+1, &end, &year) && *end == ' ' &&
+                                  ws_strtoi(end+1, &end, &hour) && *end == ':' &&
+                                  ws_strtoi(end+1, &end, &minute) && *end == ':' &&
+                                  ws_strtoi(end+1, &end, &second) && *end == '.' &&
+                                  ws_strtoi(end+1, NULL, &millisecond);
+                        if (!ok)
+                        {
+                            *err_info = ws_strdup("peak_trc: unable to parse start time");
+                            return WTAP_OPEN_ERROR;
+                        }
                     }
 
                     struct tm t;
